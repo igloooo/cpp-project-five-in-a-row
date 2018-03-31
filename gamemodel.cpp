@@ -5,7 +5,7 @@
 #include "coordinate.h"
 #include "stone.h"
 using namespace std;
-
+//This line is for testing the function of branching. Currently at branch master.
 GameModel::GameModel(string who_first){
     if((who_first!="white")&&(who_first!="black")){
         throw "\'who_first\' should be either \'black\' or \'white\', get " + who_first;
