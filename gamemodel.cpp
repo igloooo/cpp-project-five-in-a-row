@@ -6,6 +6,9 @@
 #include "stone.h"
 using namespace std;
 //This line is for testing the function of branching. Currently at branch master.
+//this line is for testing the function of git branching. Currently at dev branch.
+//Now they are merged!
+
 GameModel::GameModel(string who_first){
     if((who_first!="white")&&(who_first!="black")){
         throw "\'who_first\' should be either \'black\' or \'white\', get " + who_first;
