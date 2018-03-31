@@ -9,6 +9,7 @@ using namespace std;
 //this line is for testing the function of git branching. Currently at dev branch.
 //Now they are merged!
 //This is bug1 time line
+//1
 GameModel::GameModel(string who_first){
     if((who_first!="white")&&(who_first!="black")){
         throw "\'who_first\' should be either \'black\' or \'white\', get " + who_first;
