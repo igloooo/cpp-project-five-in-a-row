@@ -160,9 +160,7 @@ HEADERS *= "" \
     gamemodel.h \
     gamemodelpriv.h \
     coordinate.h \
-    stone.h \
-    quickai.h \
-    quickaipriv.h
+    stone.h
 HEADERS = ""
 SOURCES *= "" \
     P1.cpp \
@@ -171,8 +169,7 @@ SOURCES *= "" \
     gametreenode.cpp \
     gamemodel.cpp \
     coordinate.cpp \
-    stone.cpp \
-    quickai.cpp
+    stone.cpp
 SOURCES = ""
 
 # include various source .cpp files and header .h files in the build process
