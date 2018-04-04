@@ -26,9 +26,13 @@ int main()
     cout<<"move2 "<<myModel.TakeMove(2,2)<<endl;
     cout<<myModel<<endl;
     cout<<"move3 "<<myModel.TakeMove(15,15)<<endl;
+    myModel.TakeMove(14,14);
     myModel.TakeMove(3,3);
+    myModel.TakeMove(14,13);
     myModel.TakeMove(4,4);
+    myModel.TakeMove(13,14);
     myModel.TakeMove(5,5);
+    myModel.TakeMove(13,13);
     cout<<"move7 "<<myModel.TakeMove(6,6)<<endl;
     cout<<myModel<<endl;
 }

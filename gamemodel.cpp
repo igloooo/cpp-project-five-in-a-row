@@ -5,21 +5,30 @@
 #include "coordinate.h"
 #include "stone.h"
 using namespace std;
-//This line is for testing the function of branching. Currently at branch master.
-//this line is for testing the function of git branching. Currently at dev branch.
-//Now they are merged!
-//This is bug1 time line
-//1
+
 GameModel::GameModel(string who_first){
     if((who_first!="white")&&(who_first!="black")){
         throw "\'who_first\' should be either \'black\' or \'white\', get " + who_first;
     }
-    Map<string, int> representation;
-    representation.put("white",-1);
-    representation.put("black",1);
-    representation.put("empty",0);
-    Coordinate board_size = Coordinate(15,15);
-    //this = new GameModel(who_first, representation, board_size);
+    REPRESENTATION.put("white", -1);
+    REPRESENTATION.put("black", 1);
+    REPRESENTATION.put("empty", 0);
+    BOARDSIZE.x = 15;
+    BOARDSIZE.y = 15;
+    //the following lines are identical with the next constructor
+    WHO_FIRST = who_first;
+    whose_turn = who_first;
+    terminated = false;
+    winner = "None";
+    round = 1;
+    current_board.resize(BOARDSIZE.x,BOARDSIZE.y);
+    int empty_repr = REPRESENTATION["empty"];
+    for(int i=0;i<BOARDSIZE.x;i++){
+        for(int j=0;j<BOARDSIZE.y;j++){
+            current_board[i][j] = empty_repr;
+        }
+    }
+    num_of_empty_places = BOARDSIZE.x*BOARDSIZE.y;
 }
 GameModel::GameModel(string who_first, Map<string, int> representation, Coordinate board_size){
     if(representation["white"]==representation["black"]||
