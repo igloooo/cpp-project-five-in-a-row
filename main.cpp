@@ -10,6 +10,29 @@
 #include "gamemodel.h"
 using namespace std;
 
+
+void move_and_display(GameModel & model, int x, int y){
+    cout<<model.TakeMove(x, y)<<endl;
+    cout<<model<<endl;
+    cout<<endl;
+}
+void test_game_model(){
+    GameModel myModel("black");
+    move_and_display(myModel,0,0);
+    move_and_display(myModel,1,0);
+    move_and_display(myModel,0,1);
+    move_and_display(myModel,0,0);
+    move_and_display(myModel,1,0);
+    move_and_display(myModel,0,1);
+    move_and_display(myModel,1,1);
+    move_and_display(myModel,0,2);
+    move_and_display(myModel,1,2);
+    move_and_display(myModel,0,3);
+    move_and_display(myModel,1,3);
+    move_and_display(myModel,0,4);
+    move_and_display(myModel,1,4);
+}
+
 int main()
 /*
  * Function: main
@@ -18,21 +41,5 @@ int main()
  * This function is used to call the functions in the three other files.
  */
 {
-    GameModel myModel("white");
-    cout<<myModel<<endl;
-    cout<<endl;
-    cout<<"move1 "<<myModel.TakeMove(2,2)<<endl;
-    cout<<myModel<<endl;
-    cout<<"move2 "<<myModel.TakeMove(2,2)<<endl;
-    cout<<myModel<<endl;
-    cout<<"move3 "<<myModel.TakeMove(15,15)<<endl;
-    myModel.TakeMove(14,14);
-    myModel.TakeMove(3,3);
-    myModel.TakeMove(14,13);
-    myModel.TakeMove(4,4);
-    myModel.TakeMove(13,14);
-    myModel.TakeMove(5,5);
-    myModel.TakeMove(13,13);
-    cout<<"move7 "<<myModel.TakeMove(6,6)<<endl;
-    cout<<myModel<<endl;
+
 }

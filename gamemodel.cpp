@@ -64,10 +64,6 @@ GameModel::GameModel(string who_first, Map<string, int> representation, Coordina
 
 
 string GameModel::TakeMove(Coordinate xy){
-
-    cout<<"board_size: "<<BOARDSIZE<<endl;
-    cout<<"representation "<<REPRESENTATION.toString()<<endl;
-
     if(isTerminated()){
         return "illegal";
     }else{
@@ -109,9 +105,9 @@ string GameModel::CheckRule(Coordinate xy){
         return "illegal";
     }else{       
         //horizontal line
-        int max_count = 0;
-        int count = 0;
-        int i = 0;
+        int max_count = 1;
+        int count = 1;
+        int i = 1;
         while((xy.x+i<BOARDSIZE.x)&&
              (current_board[xy.x+i][xy.y]==REPRESENTATION[whose_turn])){
              count++;
@@ -127,8 +123,8 @@ string GameModel::CheckRule(Coordinate xy){
             max_count = count;
         }
         //vertical line
-        count = 0;
-        i = 0;
+        count = 1;
+        i = 1;
         while((xy.y+i<BOARDSIZE.y)&&
              (current_board[xy.x][xy.y+i]==REPRESENTATION[whose_turn])){
              count++;
@@ -144,8 +140,8 @@ string GameModel::CheckRule(Coordinate xy){
             max_count = count;
         }
         //left_down to right_up
-        count = 0;
-        i = 0;
+        count = 1;
+        i = 1;
         while((xy.x+i<BOARDSIZE.x)&&(xy.y+i<BOARDSIZE.y)&&
               current_board[xy.x+i][xy.y+i]==REPRESENTATION[whose_turn]){
               count++;
@@ -161,8 +157,8 @@ string GameModel::CheckRule(Coordinate xy){
             max_count = count;
         }
         //left_up to right_down
-        count = 0;
-        i = 0;
+        count = 1;
+        i = 1;
         while((xy.x+i<BOARDSIZE.x)&&(xy.y-i>=0)&&
               current_board[xy.x+i][xy.y-i]==REPRESENTATION[whose_turn]){
               count++;
@@ -177,7 +173,6 @@ string GameModel::CheckRule(Coordinate xy){
         if(count>max_count){
             max_count = count;
         }
-
         if(max_count>=5){
             return whose_turn;
         }else if(num_of_empty_places==1){
@@ -240,7 +235,7 @@ string GameModel::get_who_first(){
     return WHO_FIRST;
 }
 bool GameModel::isFirstPlayer(string color){
-    if(color!="white"||color!="black"){
+    if(color!="white"&&color!="black"){
         throw "\'color\' expects \'black\' or \'white\', get "+color;
     }else{
         return color==WHO_FIRST;
