@@ -8,6 +8,15 @@
 #include "stone.h"
 using namespace std;
 
+
+const Map<string, int> REPRESENTATION = {{"black",1},{"white",-1},{"empty",0}};
+const Coordinate BOARDSIZE(15,15);
+const string WHO_FIRST = "black";
+const Map<string, Coordinate> DIRECTIONS = {{"x",Coordinate(1,0)},
+                                            {"y",Coordinate(0,1)},
+                                            {"d",Coordinate(1,1)},
+                                            {"a",Coordinate(1,-1)}};
+
 /* GameModel, and Stone class use some string command
  * "white""black""empty" for chess board position,
  * "illegal""continuing""terminated" for action, rule
@@ -19,9 +28,7 @@ using namespace std;
 class GameModel
 {
 public:
-    GameModel(string who_first);
-    GameModel(string who_first, Map<string, int> representation,
-             Coordinate board_size);
+    GameModel();
 
     string TakeMove(Coordinate xy);//"illegal""continuing""terminated"
     string TakeMove(int x, int y);
@@ -36,22 +43,22 @@ public:
      */
     bool CancelLastMove();
 
-    Map<string, int> & get_representation();
-    Coordinate & get_board_size();
-    string get_who_first();
     bool isFirstPlayer(string color);
     string get_whose_turn();
     bool isTerminated();
     string get_winner();
     int get_round();
     bool isEmptyBoard();
+    Stone at(Coordinate xy);
+    Stone at(int x, int y);
     Stone get_history_move(int round, string color);
     Stone get_history_move(int step);
     Stone get_last_move();
-
     string toString();
+
 #include "gamemodelpriv.h"
 };
 ostream & operator<<(ostream & os, GameModel & rhs);
+string ReverseColor(string color);
 
 #endif // GAMEMODEL_H

@@ -160,7 +160,11 @@ HEADERS *= "" \
     gamemodel.h \
     gamemodelpriv.h \
     coordinate.h \
-    stone.h
+    stone.h \
+    gameai.h \
+    gameaipriv.h \
+    basicshape.h \
+    shapefinder.h
 HEADERS = ""
 SOURCES *= "" \
     P1.cpp \
@@ -169,7 +173,10 @@ SOURCES *= "" \
     gametreenode.cpp \
     gamemodel.cpp \
     coordinate.cpp \
-    stone.cpp
+    stone.cpp \
+    gameai.cpp \
+    basicshape.cpp \
+    shapefinder.cpp
 SOURCES = ""
 
 # include various source .cpp files and header .h files in the build process

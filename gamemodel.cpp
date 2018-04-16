@@ -4,59 +4,19 @@
 #include "grid.h"
 #include "coordinate.h"
 #include "stone.h"
+#include "shapefinder.h"
 using namespace std;
 
-GameModel::GameModel(string who_first){
-    if((who_first!="white")&&(who_first!="black")){
-        throw "\'who_first\' should be either \'black\' or \'white\', get " + who_first;
-    }
-    REPRESENTATION.put("white", -1);
-    REPRESENTATION.put("black", 1);
-    REPRESENTATION.put("empty", 0);
-    BOARDSIZE.x = 15;
-    BOARDSIZE.y = 15;
-    //the following lines are identical with the next constructor
-    WHO_FIRST = who_first;
-    whose_turn = who_first;
+
+GameModel::GameModel(){
+    whose_turn = WHO_FIRST;
     terminated = false;
     winner = "None";
     round = 1;
     current_board.resize(BOARDSIZE.x,BOARDSIZE.y);
-    int empty_repr = REPRESENTATION["empty"];
     for(int i=0;i<BOARDSIZE.x;i++){
         for(int j=0;j<BOARDSIZE.y;j++){
-            current_board[i][j] = empty_repr;
-        }
-    }
-    num_of_empty_places = BOARDSIZE.x*BOARDSIZE.y;
-}
-GameModel::GameModel(string who_first, Map<string, int> representation, Coordinate board_size){
-    if(representation["white"]==representation["black"]||
-       representation["white"]==representation["empty"]||
-       representation["black"]==representation["empty"]){
-        throw "different states should have different representations!"+representation.toString();
-    }
-    REPRESENTATION.put("white", representation["white"]);
-    REPRESENTATION.put("black", representation["black"]);
-    REPRESENTATION.put("empty", representation["empty"]);
-    if((board_size.x<=0)||(board_size.y<=0)){
-        throw "expect positive board size, get "+to_string(board_size.x)+","+to_string(board_size.y);
-    }
-    BOARDSIZE.x = board_size.x;
-    BOARDSIZE.y = board_size.y;
-    if((who_first!="black")&&(who_first!="white")){
-       throw "\'who_first\' should be either \'black\' or \'white\'";
-    }
-    WHO_FIRST = who_first;
-    whose_turn = who_first;
-    terminated = false;
-    winner = "None";
-    round = 1;
-    current_board.resize(BOARDSIZE.x,BOARDSIZE.y);
-    int empty_repr = REPRESENTATION["empty"];
-    for(int i=0;i<BOARDSIZE.x;i++){
-        for(int j=0;j<BOARDSIZE.y;j++){
-            current_board[i][j] = empty_repr;
+            current_board[i][j] = REPRESENTATION["empty"];
         }
     }
     num_of_empty_places = BOARDSIZE.x*BOARDSIZE.y;
@@ -99,89 +59,25 @@ string GameModel::TakeMove(int x, int y){
 }
 
 string GameModel::CheckRule(Coordinate xy){
+    string result;
     if((xy.x)<0||(xy.x>=BOARDSIZE.x)||(xy.y<0)||(xy.y>=BOARDSIZE.y)){
-        return "illegal";
+        result = "illegal";
     }else if(current_board[xy.x][xy.y]!=REPRESENTATION["empty"]){
-        return "illegal";
-    }else{       
-        //horizontal line
-        int max_count = 1;
-        int count = 1;
-        int i = 1;
-        while((xy.x+i<BOARDSIZE.x)&&
-             (current_board[xy.x+i][xy.y]==REPRESENTATION[whose_turn])){
-             count++;
-             i++;
-        }
-        i = -1;
-        while((xy.x+i>=0)&&
-             (current_board[xy.x+i][xy.y]==REPRESENTATION[whose_turn])){
-             count++;
-             i--;
-        }
-        if(count>max_count){
-            max_count = count;
-        }
-        //vertical line
-        count = 1;
-        i = 1;
-        while((xy.y+i<BOARDSIZE.y)&&
-             (current_board[xy.x][xy.y+i]==REPRESENTATION[whose_turn])){
-             count++;
-             i++;
-        }
-        i = -1;
-        while((xy.y+i>=0)&&
-             (current_board[xy.x][xy.y+i]==REPRESENTATION[whose_turn])){
-             count++;
-             i--;
-        }
-        if(count>max_count){
-            max_count = count;
-        }
-        //left_down to right_up
-        count = 1;
-        i = 1;
-        while((xy.x+i<BOARDSIZE.x)&&(xy.y+i<BOARDSIZE.y)&&
-              current_board[xy.x+i][xy.y+i]==REPRESENTATION[whose_turn]){
-              count++;
-              i++;
-        }
-        i = -1;
-        while((xy.x+i>=0)&&(xy.y+i>=0)&&
-              current_board[xy.x+i][xy.y+i]==REPRESENTATION[whose_turn]){
-              count++;
-              i--;
-        }
-        if(count>max_count){
-            max_count = count;
-        }
-        //left_up to right_down
-        count = 1;
-        i = 1;
-        while((xy.x+i<BOARDSIZE.x)&&(xy.y-i>=0)&&
-              current_board[xy.x+i][xy.y-i]==REPRESENTATION[whose_turn]){
-              count++;
-              i++;
-        }
-        i = -1;
-        while((xy.x+i>=0)&&(xy.y-i<BOARDSIZE.y)&&
-              current_board[xy.x+i][xy.y-i]==REPRESENTATION[whose_turn]){
-              count++;
-              i--;
-        }
-        if(count>max_count){
-            max_count = count;
-        }
-        if(max_count>=5){
-            return whose_turn;
+        result = "illegal";
+    }else{
+        //this is a dangerous line since it changes board without invoking methods
+        this->current_board[xy.x][xy.y] = REPRESENTATION[whose_turn];
+        if(have_five_at(this->current_board, whose_turn, xy)){
+            result = whose_turn;
         }else if(num_of_empty_places==1){
-            return "tie";
+            result = "tie";
         }else if(num_of_empty_places<1) {
-            throw "unexpected error: num_of_empty_places = " + to_string(num_of_empty_places);
+            result = "unexpected error: num_of_empty_places = " + to_string(num_of_empty_places);
         }else{
-            return "continuing";
+            result = "continuing";
         }
+        this->current_board[xy.x][xy.y] = REPRESENTATION["empty"];
+        return result;
     }
 }
 
@@ -209,7 +105,7 @@ bool GameModel::CancelLastMove(){
         Stone last_move = get_last_move();
         history_moves.remove(history_moves.size()-1);
         current_board[last_move.x][last_move.y] = REPRESENTATION["empty"];
-        if(isFirstPlayer(last_move.color)){
+        if(!isFirstPlayer(last_move.color)){
             round -= 1;
         }
         whose_turn = ReverseColor(whose_turn);
@@ -220,20 +116,7 @@ bool GameModel::CancelLastMove(){
     }
 }
 
-Map<string, int> & GameModel::get_representation(){
-    Map<string, int> repre;
-    repre.put("white", REPRESENTATION["white"]);
-    repre.put("black", REPRESENTATION["black"]);
-    repre.put("empty", REPRESENTATION["empty"]);
-    return repre;
-}
-Coordinate & GameModel::get_board_size(){
-    Coordinate *board_size = new Coordinate(BOARDSIZE.x, BOARDSIZE.y);
-    return *board_size;
-}
-string GameModel::get_who_first(){
-    return WHO_FIRST;
-}
+
 bool GameModel::isFirstPlayer(string color){
     if(color!="white"&&color!="black"){
         throw "\'color\' expects \'black\' or \'white\', get "+color;
@@ -257,6 +140,21 @@ int GameModel::get_round(){
 
 bool GameModel::isEmptyBoard(){
     return history_moves.isEmpty();
+}
+
+Stone GameModel::at(Coordinate xy){
+    return at(xy.x,xy.y);
+}
+
+Stone GameModel::at(int x, int y){
+    int value = current_board[x][y];
+    if(value==REPRESENTATION["black"]){
+        return Stone(x,y,"black");
+    }else if(value==REPRESENTATION["white"]){
+        return Stone(x,y,"white");
+    }else if(value==REPRESENTATION["empty"]){
+        return Stone(x,y,"empty");
+    }
 }
 
 Stone GameModel::get_history_move(int round, string color){
@@ -304,7 +202,7 @@ string GameModel::toString(){
     return str;
 }
 
-string GameModel::ReverseColor(string color){
+string ReverseColor(string color){
     if(color=="black"){
         return "white";
     }else if(color=="white"){
@@ -313,12 +211,7 @@ string GameModel::ReverseColor(string color){
         throw "\'color\' expects \'black\' or \'white\', get "+color;
     }
 }
-/*
-void GameModel::CopyProperties(const GameModel & rhs){
-    this->REPRESENTATION = rhs.REPRESENTATION;
-    this->BOARDSIZE = rhs.BOARDSIZE
-}
-*/
+
 ostream & operator<<(ostream & os, GameModel & rhs){
     return os<<rhs.toString();
 }

@@ -1,4 +1,5 @@
 #include "gametreenode.h"
+#include "gamemodel.h"
 #include <iostream>
 #include <string>
 #include <ostream>
@@ -206,13 +207,3 @@ ostream & operator<<(ostream &os, GameTreeNode & node){
     return os<<node.toString();
 }
 
-
-string ReverseColor(string color){
-    if(color=="white"){
-        return string("black");
-    }else if(color=="black"){
-        return string("white");
-    }else{
-        throw "\'color\' should be either \'black\' or \'white\'";
-    }
-}

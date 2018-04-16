@@ -7,11 +7,7 @@
 #include "stone.h"
 using namespace std;
 */
-private:
-    Map<string, int> REPRESENTATION;
-    Coordinate BOARDSIZE;
-    string WHO_FIRST;
-
+protected:
     string whose_turn;
     bool terminated;
     string winner;//"black","white","tie","None"
@@ -22,6 +18,4 @@ private:
 
     int num_of_empty_places;
 
-    string ReverseColor(string color);
-    void CopyProperties(const GameModel & rhs);
 #endif // GAMEMODELPRIV_H

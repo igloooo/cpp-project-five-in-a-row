@@ -7,7 +7,7 @@
 
 #ifndef GAMETREENODE_H
 #define GAMETREENODE_H
-#include "gametreenode.h"
+#include "gamemodel.h"
 #include <iostream>
 #include <string>
 #include <ostream>
@@ -63,6 +63,5 @@ private:
     void set_color(string color);
 };
 ostream & operator<<(ostream &os, GameTreeNode & node);
-string ReverseColor(string color);
 
 #endif // GAMETREENODE_H
