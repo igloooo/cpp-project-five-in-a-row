@@ -48,15 +48,17 @@ public:
     bool isTerminated();
     string get_winner();
     int get_round();
+    int get_steps();//size of history_moves
     bool isEmptyBoard();
     Stone at(Coordinate xy);
     Stone at(int x, int y);
     Stone get_history_move(int round, string color);
     Stone get_history_move(int step);
     Stone get_last_move();
+    int get_num_of_empty_places();
     string toString();
 
-#include "gamemodelpriv.h"
+#include "gamemodelpriv.h";
 };
 ostream & operator<<(ostream & os, GameModel & rhs);
 string ReverseColor(string color);

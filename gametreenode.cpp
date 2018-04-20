@@ -105,10 +105,10 @@ int GameTreeNode::get_y(){
 string GameTreeNode::get_color(){
     return color;
 }
-float GameTreeNode::get_state_value(){
+int GameTreeNode::get_state_value(){
     return state_value;
 }
-void GameTreeNode::set_state_value(float value){
+void GameTreeNode::set_state_value(int value){
     state_value = value;
 }
 

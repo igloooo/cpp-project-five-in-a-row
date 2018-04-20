@@ -40,8 +40,8 @@ public:
     int get_x();
     int get_y();
     string get_color();
-    float get_state_value();
-    void set_state_value(float value);
+    int get_state_value();
+    void set_state_value(int value);
     GameTreeNode & ExpandSiblingH(int x, int y);
     GameTreeNode & ExpandSiblingT(int x, int y);
     GameTreeNode & ExpandChild(int x, int y);
@@ -54,7 +54,7 @@ private:
     int x;
     int y;
     string color;
-    float state_value;
+    int state_value;
     GameTreeNode *parent;
     GameTreeNode *sibling_h;
     GameTreeNode *sibling_t;

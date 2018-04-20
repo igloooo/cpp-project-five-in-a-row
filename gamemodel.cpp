@@ -136,7 +136,9 @@ string GameModel::get_winner(){
 int GameModel::get_round(){
     return round;
 }
-
+int GameModel::get_steps(){
+    return history_moves.size();
+}
 
 bool GameModel::isEmptyBoard(){
     return history_moves.isEmpty();
@@ -182,6 +184,10 @@ Stone GameModel::get_last_move(){
         throw "The board is still empty!";
     }
     return history_moves[history_moves.size()-1];
+}
+
+int GameModel::get_num_of_empty_places(){
+    return num_of_empty_places;
 }
 
 string GameModel::toString(){
