@@ -1,5 +1,6 @@
 #include "gametreenode.h"
 #include "gamemodel.h"
+#include "coordinate.h"
 #include <iostream>
 #include <string>
 #include <ostream>
@@ -7,8 +8,6 @@ using namespace std;
 
 
 GameTreeNode::GameTreeNode(int x, int y, string color){
-    BOARDSIZEX = 15;
-    BOARDSIZEY = 15;
     set_xy(x, y);
     set_color(color);
 
@@ -19,16 +18,8 @@ GameTreeNode::GameTreeNode(int x, int y, string color){
     child = NULL;
 }
 
-
-GameTreeNode::GameTreeNode(int x, int y, string color, int board_size_x, int board_size_y){
-    if(board_size_x<=1||board_size_y<=1){
-        throw "invalid board size "+to_string(board_size_x)
-              +","+to_string(board_size_y);
-    }else{
-        BOARDSIZEX = board_size_x;
-        BOARDSIZEY = board_size_y;
-    }
-    set_xy(x, y);
+GameTreeNode::GameTreeNode(Coordinate xy, string color){
+    set_xy(xy.x, xy.y);
     set_color(color);
 
     state_value = 0;
@@ -37,7 +28,6 @@ GameTreeNode::GameTreeNode(int x, int y, string color, int board_size_x, int boa
     sibling_t = NULL;
     child = NULL;
 }
-
 
 bool GameTreeNode::hasParent(){
     return (parent!=NULL);
@@ -114,7 +104,7 @@ void GameTreeNode::set_state_value(int value){
 
 
 GameTreeNode & GameTreeNode::ExpandSiblingH(int x, int y){
-    GameTreeNode *p_new_node = new GameTreeNode(x, y, color, BOARDSIZEX, BOARDSIZEY);
+    GameTreeNode *p_new_node = new GameTreeNode(x, y, color);
     if(hasSiblingH()){
         GameTreeNode *p_head_side_node = sibling_h;
         sibling_h = p_new_node;
@@ -130,8 +120,12 @@ GameTreeNode & GameTreeNode::ExpandSiblingH(int x, int y){
     }
     return *p_new_node;
 }
+GameTreeNode & GameTreeNode::ExpandSiblingH(Coordinate xy){
+    return ExpandSiblingH(xy.x, xy.y);
+}
+
 GameTreeNode & GameTreeNode::ExpandSiblingT(int x, int y){
-    GameTreeNode *p_new_node = new GameTreeNode(x, y, color, BOARDSIZEX, BOARDSIZEY);
+    GameTreeNode *p_new_node = new GameTreeNode(x, y, color);
     if(hasSiblingT()){
         GameTreeNode *p_tail_side_node = sibling_t;
         sibling_t = p_new_node;
@@ -146,17 +140,23 @@ GameTreeNode & GameTreeNode::ExpandSiblingT(int x, int y){
     }
     return *p_new_node;
 }
+GameTreeNode & GameTreeNode::ExpandSiblingT(Coordinate xy){
+    return ExpandSiblingT(xy);
+}
+
 GameTreeNode & GameTreeNode::ExpandChild(int x, int y){
     if(hasChild()){
         return child->ExpandSiblingH(x, y);
     }else{
-        GameTreeNode *p_new_node = new GameTreeNode(x, y, ReverseColor(color), BOARDSIZEX, BOARDSIZEY);
+        GameTreeNode *p_new_node = new GameTreeNode(x, y, ReverseColor(color));
         child = p_new_node;
         p_new_node->set_parent(*this);
         return *p_new_node;
     }
 }
-
+GameTreeNode & GameTreeNode::ExpandChild(Coordinate xy){
+    return ExpandChild(xy.x, xy.y);
+}
 
 GameTreeNode & GameTreeNode::GetNewState(int x, int y){
     if(!hasChild()){
@@ -171,11 +171,12 @@ GameTreeNode & GameTreeNode::GetNewState(int x, int y){
         return ExpandChild(x, y);
     }
 }
-
+GameTreeNode & GameTreeNode::GetNewState(Coordinate xy){
+    return GetNewState(xy.x, xy.y);
+}
 
 string GameTreeNode::toString(){
-    string str = "board_size: (" + to_string(BOARDSIZEX) + ","
-                 + to_string(BOARDSIZEY) + ")\n";
+    string str;
     str += "position: (" + to_string(x) + ","
           + to_string(y) + ")\n";
     str += "color: " + color + "\n";
@@ -184,7 +185,7 @@ string GameTreeNode::toString(){
 }
 
 void GameTreeNode::set_xy(int x, int y){
-    if(x<0||x>=BOARDSIZEX||y<0||y>=BOARDSIZEY){
+    if((x<0)||(x>=BOARDSIZE.x)||(y<0)||(y>=BOARDSIZE.y)){
         cerr<<"invalid xy when initializing a node"<<endl;
         throw to_string(x)+","+to_string(y);
     }else{

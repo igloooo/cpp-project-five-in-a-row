@@ -20,7 +20,7 @@ void move_and_display(GameModel & model, int x, int y){
 void showBoard(GameModel & model){
     for(int i=0;i<BOARDSIZE.x;i++){
         if(i!=0){
-            cout<<"---------------------------------------------------"<<endl;
+            cout<<"-----------------------------------------------------------"<<endl;
         }
         for(int j=0;j<BOARDSIZE.y;j++){
             string piece = model.at(i,j).color;
@@ -44,9 +44,6 @@ void test_game_model(){
     move_and_display(myModel,0,0);
     move_and_display(myModel,1,0);
     move_and_display(myModel,0,1);
-    move_and_display(myModel,0,0);
-    move_and_display(myModel,1,0);
-    move_and_display(myModel,0,1);
     move_and_display(myModel,1,1);
     move_and_display(myModel,0,2);
     move_and_display(myModel,1,2);
@@ -55,9 +52,9 @@ void test_game_model(){
     move_and_display(myModel,0,4);
     move_and_display(myModel,1,4);
     myModel.CancelLastMove();
-    cout<<"round "<<myModel<<endl;
+    cout<<myModel<<endl;
     myModel.CancelLastMove();
-    cout<<"round "<<myModel<<endl;
+    cout<<myModel<<endl;
     showBoard(myModel);
 }
 

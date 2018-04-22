@@ -1,7 +1,7 @@
 #include "gamemodel.h"
 #include <iostream>
-#include "map.h"
-#include "grid.h"
+#include <map>
+#include <vector>
 #include "coordinate.h"
 #include "stone.h"
 #include "shapefinder.h"
@@ -13,10 +13,11 @@ GameModel::GameModel(){
     terminated = false;
     winner = "None";
     round = 1;
-    current_board.resize(BOARDSIZE.x,BOARDSIZE.y);
+    current_board.resize(BOARDSIZE.x);
     for(int i=0;i<BOARDSIZE.x;i++){
-        for(int j=0;j<BOARDSIZE.y;j++){
-            current_board[i][j] = REPRESENTATION["empty"];
+        current_board[i].resize(BOARDSIZE.y);
+        for(int j=0; j<BOARDSIZE.y; j++){
+            current_board[i][j] = REPRESENTATION.at("empty");
         }
     }
     num_of_empty_places = BOARDSIZE.x*BOARDSIZE.y;
@@ -34,9 +35,9 @@ string GameModel::TakeMove(Coordinate xy){
             if(!isFirstPlayer(whose_turn)){
                 round += 1;
             }
-            current_board[xy.x][xy.y] = REPRESENTATION[whose_turn];
+            current_board[xy.x][xy.y] = REPRESENTATION.at(whose_turn);
             Stone new_stone_record = Stone(xy.x, xy.y, whose_turn);
-            history_moves.add(new_stone_record);
+            history_moves.push_back(new_stone_record);
             num_of_empty_places -= 1;
             whose_turn = ReverseColor(whose_turn);
 
@@ -62,12 +63,12 @@ string GameModel::CheckRule(Coordinate xy){
     string result;
     if((xy.x)<0||(xy.x>=BOARDSIZE.x)||(xy.y<0)||(xy.y>=BOARDSIZE.y)){
         result = "illegal";
-    }else if(current_board[xy.x][xy.y]!=REPRESENTATION["empty"]){
+    }else if(current_board[xy.x][xy.y]!=REPRESENTATION.at("empty")){
         result = "illegal";
     }else{
         //this is a dangerous line since it changes board without invoking methods
-        this->current_board[xy.x][xy.y] = REPRESENTATION[whose_turn];
-        if(have_five_at(this->current_board, whose_turn, xy)){
+        current_board[xy.x][xy.y] = REPRESENTATION.at(whose_turn);
+        if(have_five_at(current_board, whose_turn, xy)){
             result = whose_turn;
         }else if(num_of_empty_places==1){
             result = "tie";
@@ -76,9 +77,9 @@ string GameModel::CheckRule(Coordinate xy){
         }else{
             result = "continuing";
         }
-        this->current_board[xy.x][xy.y] = REPRESENTATION["empty"];
-        return result;
+        current_board[xy.x][xy.y] = REPRESENTATION.at("empty");
     }
+    return result;
 }
 
 string GameModel::CheckRule(int x, int y){
@@ -103,8 +104,8 @@ bool GameModel::CancelLastMove(){
             winner = "None";
         }
         Stone last_move = get_last_move();
-        history_moves.remove(history_moves.size()-1);
-        current_board[last_move.x][last_move.y] = REPRESENTATION["empty"];
+        history_moves.pop_back();
+        current_board[last_move.x][last_move.y] = REPRESENTATION.at("empty");
         if(!isFirstPlayer(last_move.color)){
             round -= 1;
         }
@@ -137,11 +138,11 @@ int GameModel::get_round(){
     return round;
 }
 int GameModel::get_steps(){
-    return history_moves.size();
+    return (int)history_moves.size();
 }
 
 bool GameModel::isEmptyBoard(){
-    return history_moves.isEmpty();
+    return history_moves.empty();
 }
 
 Stone GameModel::at(Coordinate xy){
@@ -150,12 +151,14 @@ Stone GameModel::at(Coordinate xy){
 
 Stone GameModel::at(int x, int y){
     int value = current_board[x][y];
-    if(value==REPRESENTATION["black"]){
+    if(value==REPRESENTATION.at("black")){
         return Stone(x,y,"black");
-    }else if(value==REPRESENTATION["white"]){
+    }else if(value==REPRESENTATION.at("white")){
         return Stone(x,y,"white");
-    }else if(value==REPRESENTATION["empty"]){
+    }else if(value==REPRESENTATION.at("empty")){
         return Stone(x,y,"empty");
+    }else{
+        throw "unexpected error";
     }
 }
 
@@ -166,16 +169,16 @@ Stone GameModel::get_history_move(int round, string color){
     }else{
         index = round*2-1;
     }
-    if((index>=history_moves.size())||(index<0)){
+    if((index>=(int)history_moves.size())||(index<0)){
         throw "index "+to_string(index)+" larger than container size "
-              +to_string(history_moves.size());
+              +to_string((int)history_moves.size());
     }
     return history_moves[index];
 }
 Stone GameModel::get_history_move(int step){
-    if((step>=history_moves.size())||step<0){
+    if((step>=(int)history_moves.size())||step<0){
         throw "index "+to_string(step)+" larger than container size "
-              +to_string(history_moves.size());
+              +to_string((int)history_moves.size());
     }
     return history_moves[step];
 }
@@ -183,7 +186,7 @@ Stone GameModel::get_last_move(){
     if(isEmptyBoard()){
         throw "The board is still empty!";
     }
-    return history_moves[history_moves.size()-1];
+    return history_moves[(int)history_moves.size()-1];
 }
 
 int GameModel::get_num_of_empty_places(){
@@ -192,9 +195,6 @@ int GameModel::get_num_of_empty_places(){
 
 string GameModel::toString(){
     string str;
-    str += "REPRESENTATION: " + REPRESENTATION.toString() + "\n";
-    str += "BOARDSIZE: " + BOARDSIZE.toString() + "\n";
-    str += "WHO_FIRST: " + WHO_FIRST + "\n";
     str += "whose_turn: " + whose_turn + "\n";
     str += "terminiated: " + to_string(terminated) + "\n";
     str += "winner: " + winner + "\n";

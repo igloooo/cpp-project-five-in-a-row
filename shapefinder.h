@@ -2,6 +2,7 @@
 #define SHAPEFINDER_H
 #include "gamemodel.h"
 #include "Coordinate.h"
+#include <vector>
 using namespace std;
 
 /*
@@ -12,8 +13,8 @@ using namespace std;
  * or even more of the given volor on the board passing
  * the given center xy.
  */
-bool have_five_at(const Grid<int> &board, string color, Coordinate xy);
-bool have_five_at(const Grid<int> &board, string color, int x, int y);
+bool have_five_at(const vector<vector<int>> &board, string color, Coordinate xy);
+bool have_five_at(const vector<vector<int>> &board, string color, int x, int y);
 
 
 /*
@@ -25,7 +26,7 @@ bool have_five_at(const Grid<int> &board, string color, int x, int y);
  * This function excludes the case when there is a continuous
  * five.
  */
-bool have_active_four_at(const Grid<int> &board, string color, Coordinate xy);
-bool have_active_four_at(const Grid<int> &board, string color, int x, int y);
+bool have_active_four_at(const vector<vector<int>> &board, string color, Coordinate xy);
+bool have_active_four_at(const vector<vector<int>> &board, string color, int x, int y);
 
 #endif // SHAPEFINDER_H

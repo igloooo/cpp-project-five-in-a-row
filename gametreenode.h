@@ -8,6 +8,7 @@
 #ifndef GAMETREENODE_H
 #define GAMETREENODE_H
 #include "gamemodel.h"
+#include "coordinate.h"
 #include <iostream>
 #include <string>
 #include <ostream>
@@ -23,7 +24,7 @@ class GameTreeNode
 {
 public:
     GameTreeNode(int x, int y, string color);
-    GameTreeNode(int x, int y, string color, int board_size_x, int board_size_y);
+    GameTreeNode(Coordinate xy, string color);
     //~GameTreeNode();
     bool hasParent();
     bool hasSiblingH();
@@ -43,14 +44,16 @@ public:
     int get_state_value();
     void set_state_value(int value);
     GameTreeNode & ExpandSiblingH(int x, int y);
+    GameTreeNode & ExpandSiblingH(Coordinate xy);
     GameTreeNode & ExpandSiblingT(int x, int y);
+    GameTreeNode & ExpandSiblingT(Coordinate xy);
     GameTreeNode & ExpandChild(int x, int y);
+    GameTreeNode & ExpandChild(Coordinate xy);
     //Use this method when trying to take a move
     GameTreeNode & GetNewState(int x, int y);
+    GameTreeNode & GetNewState(Coordinate xy);
     string toString();
 private:
-    int BOARDSIZEX;  //15*15 by default
-    int BOARDSIZEY;
     int x;
     int y;
     string color;

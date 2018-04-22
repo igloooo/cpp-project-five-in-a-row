@@ -2,17 +2,17 @@
 #define GAMEMODEL_H
 
 #include <iostream>
-#include "map.h"
-#include "grid.h"
+#include <map>
+#include <vector>
 #include "coordinate.h"
 #include "stone.h"
 using namespace std;
 
 
-const Map<string, int> REPRESENTATION = {{"black",1},{"white",-1},{"empty",0}};
+const map<string, int> REPRESENTATION = {{"black",1},{"white",-1},{"empty",0}};
 const Coordinate BOARDSIZE(15,15);
 const string WHO_FIRST = "black";
-const Map<string, Coordinate> DIRECTIONS = {{"x",Coordinate(1,0)},
+const map<string, Coordinate> DIRECTIONS = {{"x",Coordinate(1,0)},
                                             {"y",Coordinate(0,1)},
                                             {"d",Coordinate(1,1)},
                                             {"a",Coordinate(1,-1)}};
@@ -58,7 +58,16 @@ public:
     int get_num_of_empty_places();
     string toString();
 
-#include "gamemodelpriv.h";
+protected:
+    string whose_turn;
+    bool terminated;
+    string winner;//"black","white","tie","None"
+    int round;
+
+    vector<vector<int>> current_board;
+    vector<Stone> history_moves;
+
+    int num_of_empty_places;
 };
 ostream & operator<<(ostream & os, GameModel & rhs);
 string ReverseColor(string color);

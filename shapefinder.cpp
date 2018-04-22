@@ -1,21 +1,22 @@
 #include "shapefinder.h"
 #include "gamemodel.h"
 #include "coordinate.h"
-#include "map.h"
+#include <map>
+#include <vector>
 using namespace std;
 
-bool have_five_at(const Grid<int> & board, string color, Coordinate xy){
-    Vector<string> keys = DIRECTIONS.keys();
+bool have_five_at(const vector<vector<int>> & board, string color, Coordinate xy){
+    map<string, Coordinate>::const_iterator it = DIRECTIONS.cbegin();
     int count;
     int i;
     Coordinate cur;
-    for(string key:keys){
+    while(it!=DIRECTIONS.cend()){
         count = 0;
         i = 0;
         while(true){
-            cur = xy+multiply(DIRECTIONS[key],i);
+            cur = xy+multiply(it->second,i);
             if(!((cur<BOARDSIZE)&&(cur>=Coordinate(0,0))&&
-             (board.get(cur.x, cur.y)==REPRESENTATION[color]))){
+             (board[cur.x][cur.y]==REPRESENTATION.at(color)))){
                  break;
             }
             count++;
@@ -23,9 +24,9 @@ bool have_five_at(const Grid<int> & board, string color, Coordinate xy){
         }
         i = -1;
         while(true){
-            cur = xy+multiply(DIRECTIONS[key],i);
+            cur = xy+multiply(it->second,i);
             if(!((cur<BOARDSIZE)&&(cur>=Coordinate(0,0))&&
-             (board.get(cur.x, cur.y)==REPRESENTATION[color]))){
+             (board[cur.x][cur.y]==REPRESENTATION.at(color)))){
                  break;
             }
             count++;
@@ -34,32 +35,33 @@ bool have_five_at(const Grid<int> & board, string color, Coordinate xy){
         if(count>=5){
             return true;
         }
+        it++;
     }
     return false;
 }
 
-bool have_five_at(const Grid<int> &board, string color, int x, int y){
+bool have_five_at(const vector<vector<int>> &board, string color, int x, int y){
     return have_five_at(board, color, Coordinate(x,y));
 }
 
-bool have_active_four_at(const Grid<int> & board, string color, Coordinate xy){
-    Vector<string> keys = DIRECTIONS.keys();
+bool have_active_four_at(const vector<vector<int>> & board, string color, Coordinate xy){
+    map<string, Coordinate>::const_iterator it = DIRECTIONS.cbegin();
     int count;
     int i;
     Coordinate cur;
     bool isFree;
-    for(string key:keys){
+    while(it!=DIRECTIONS.cend()){
         count = 0;
         i = 0;
         isFree = true;//whether there are empty spaces on both sides
         while(true){
-            cur = xy+multiply(DIRECTIONS[key],i);
+            cur = xy+multiply(it->second,i);
             if(!((cur<BOARDSIZE)&&(cur>=Coordinate(0,0)))){
                isFree = false;
                break;
-            }else if(board.get(cur.x, cur.y)==REPRESENTATION["empty"]){
+            }else if(board[cur.x][cur.y]==REPRESENTATION.at("empty")){
                break;
-            }else if(board.get(cur.x, cur.y)==REPRESENTATION[ReverseColor(color)]){
+            }else if(board[cur.x][cur.y]==REPRESENTATION.at(ReverseColor(color))){
                isFree = false;
                break;
             }
@@ -68,13 +70,13 @@ bool have_active_four_at(const Grid<int> & board, string color, Coordinate xy){
         }
         i = -1;
         while (true){
-            cur = xy+multiply(DIRECTIONS[key],i);
+            cur = xy+multiply(it->second,i);
             if(!((cur<BOARDSIZE)&&(cur>=Coordinate(0,0)))){
                isFree = false;
                break;
-            }else if(board.get(cur.x, cur.y)==REPRESENTATION["empty"]){
+            }else if(board[cur.x][cur.y]==REPRESENTATION.at("empty")){
                break;
-            }else if(board.get(cur.x, cur.y)==REPRESENTATION[ReverseColor(color)]){
+            }else if(board[cur.x][cur.y]==REPRESENTATION.at(ReverseColor(color))){
                isFree = false;
                break;
             }
@@ -84,10 +86,11 @@ bool have_active_four_at(const Grid<int> & board, string color, Coordinate xy){
         if((count==4)&&isFree){
             return true;
         }
+        it++;
     }
     return false;
 }
 
-bool have_active_four_at(const Grid<int> &board, string color, int x, int y){
+bool have_active_four_at(const vector<vector<int>> &board, string color, int x, int y){
     return have_active_four_at(board, color, Coordinate(x, y));
 }
