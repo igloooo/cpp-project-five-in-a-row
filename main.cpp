@@ -9,6 +9,7 @@
 #include "gametreenode.h"
 #include "gamemodel.h"
 #include "stone.h"
+#include "gameai.h"
 using namespace std;
 
 
@@ -40,7 +41,7 @@ void showBoard(GameModel & model){
 }
 
 void test_game_model(){
-    GameModel myModel = GameModel();
+    GameModel myModel = GameModel(HUMAN,COMPUTER);
     move_and_display(myModel,0,0);
     move_and_display(myModel,1,0);
     move_and_display(myModel,0,1);
@@ -66,5 +67,9 @@ int main()
  * This function is used to call the functions in the three other files.
  */
 {
-    test_game_model();
+    GameModel myModel(HUMAN,COMPUTER);
+    myModel.TakeMove(1,1);
+    GameAI myAI(myModel, "white", 7);
+    cout<<myAI<<endl;
+    //myModel.TakeMove(myAI.Decide());
 }

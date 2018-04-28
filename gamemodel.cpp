@@ -7,8 +7,9 @@
 #include "shapefinder.h"
 using namespace std;
 
+GameModel::GameModel():FIRST_PLAYER(HUMAN),SECOND_PLAYER(HUMAN){}
 
-GameModel::GameModel(){
+GameModel::GameModel(Player first_player, Player second_player):FIRST_PLAYER(first_player), SECOND_PLAYER(second_player){
     whose_turn = WHO_FIRST;
     terminated = false;
     winner = "None";
@@ -145,6 +146,23 @@ bool GameModel::isEmptyBoard(){
     return history_moves.empty();
 }
 
+int GameModel::get_num_of_empty_places(){
+    return num_of_empty_places;
+}
+Player GameModel::get_first_player(){
+    return FIRST_PLAYER;
+}
+Player GameModel::get_second_player(){
+    return SECOND_PLAYER;
+}
+Player GameModel::get_cur_player(){
+    if(whose_turn==WHO_FIRST){
+        return get_first_player();
+    }else{
+        return get_second_player();
+    }
+}
+
 Stone GameModel::at(Coordinate xy){
     return at(xy.x,xy.y);
 }
@@ -189,8 +207,12 @@ Stone GameModel::get_last_move(){
     return history_moves[(int)history_moves.size()-1];
 }
 
-int GameModel::get_num_of_empty_places(){
-    return num_of_empty_places;
+vector<Stone> GameModel::get_all_stones(){
+    vector<Stone> all_stones;
+    for(int i=0;i<get_steps();i++){
+        all_stones[i] = history_moves[i];
+    }
+    return all_stones;
 }
 
 string GameModel::toString(){
@@ -220,4 +242,12 @@ string ReverseColor(string color){
 
 ostream & operator<<(ostream & os, GameModel & rhs){
     return os<<rhs.toString();
+}
+
+Player ReversePlayer(Player player){
+    if(player==COMPUTER){
+        return HUMAN;
+    }else{
+        return COMPUTER;
+    }
 }
