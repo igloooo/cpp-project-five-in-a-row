@@ -53,6 +53,13 @@ bool operator < (const Stone &st1, const Stone &st2){
         return st1.y<st2.y;
     }
 }
+
+bool operator == (const Stone &s1, const Stone &s2){
+    return (s1.x==s2.x)&&
+           (s1.y==s2.y)&&
+           (s1.color==s2.color);
+}
+
 ostream & operator<<(ostream & os, Stone & rhs){
     return os<<rhs.toString();
 }

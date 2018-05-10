@@ -73,64 +73,105 @@ Coordinate GameAI::Decide(){
     RankOptions(options);
     Coordinate move;//the move to try
     Coordinate opt_move;
-    int child_ab;
-    int ab = -LARGEST_NUMBER;
+    int alpha = -LARGEST_NUMBER-1;
+    int beta = LARGEST_NUMBER + 1;
     while(!options.empty()){
         move = options.top();
         options.pop();
-        TryMove(move);
-        child_ab = -ABSearch(ab);//opponent's score should be reversed
-        if(child_ab>ab){
-            ab = child_ab;
+        string result = TryMove(move);
+        if(result=="illegal"){
+            continue;
+        }
+        int new_alpha = ABSearch(alpha, beta);
+        if(new_alpha>alpha){
+            alpha = new_alpha;
             opt_move = move;
         }
         CancelTry();
     }
-    return opt_move;
+    //see if opponent's vct exist
+    TryMove(opt_move);
+    CalculateVCT(canWin, VCT_move);
+    CancelTry();
+    if(canWin){
+        return VCT_move;
+    }else{
+        return opt_move;
+    }
 }
 
-int GameAI::ABSearch(int p_ab){
-    //global_step += 1;
-    //if(global_step%100==0)
-    //    cout<<global_step<<endl;
+int GameAI::ABSearch(int alpha, int beta){
+    global_step += 1;
+    //cout<<get_relative_depth()<<endl;
+    if(global_step%99==0){
+        cout<<global_step<<endl;
+        cout<<get_relative_depth()<<endl;
+        cout<<alpha<<","<<beta<<endl;
+        //ShowBoard(current_board);
+    }
     if(get_relative_depth()<MAX_DEPTH){
     //in tree phase
         stack<Coordinate> options;
         RankOptions(options);
-        int ab = -LARGEST_NUMBER;
         Coordinate opt_move;
+        Coordinate move;
         while(!options.empty()){
-            Coordinate move = options.top();
+            move = options.top();
             options.pop();
             string result = TryMove(move);
-            if(result=="terminated"){
-                return LARGEST_NUMBER;
-            }else{
-                int child_ab = -ABSearch(ab);//opponents' score should be inversed
-                //keep track of optimal move and ab
-                if(child_ab>ab){
-                    ab = child_ab;
-                    opt_move = move;
+            if(result=="illegal"){
+                continue;
+            }
+            if(isMaxNode()){
+                if(result=="terminated"){
+                    CancelTry();
+                    //ShowBoard();
+                    return LARGEST_NUMBER;
+                }else{
+                    int new_alpha = ABSearch(alpha, beta);
+                    //keep track of optimal move and ab
+                    if(new_alpha>alpha){
+                        alpha = new_alpha;
+                        opt_move = move;
+                    }
+                    //prunning
+                    if(alpha >= beta){
+                        cout<<"prunning happens"<<endl;
+                        CancelTry();
+                        return alpha;
+                    }
                 }
-                //prunning
-                if(-ab<=p_ab){
-                    cout<<"prunning happens!"<<endl;
-                    return ab;
+            }else{
+                if(result=="terminated"){
+                    CancelTry();
+                    //ShowBoard();
+                    return -LARGEST_NUMBER;
+                }else{
+                    int new_beta = ABSearch(alpha, beta);
+                    if(new_beta<beta){
+                        beta = new_beta;
+                        opt_move = move;
+                    }
+                    if(alpha>=beta){
+                        cout<<"prunning happens"<<endl;
+                        CancelTry();
+                        return beta;
+                    }
                 }
             }
             CancelTry();
         }
-        return ab;
+        if(isMaxNode()){
+            return alpha;
+        }else{
+            return beta;
+        }
     }else{
     //at the leaf
-        int score;
-        bool canWin;
-        Coordinate rubbish;
-        CalculateVCT(canWin, rubbish);
-        if(canWin){
-            return LARGEST_NUMBER;
-        }else{
+        if(isMaxNode()){
             return EstimateState();
+        }else{
+            return -EstimateState();
         }
     }
 }
@@ -217,104 +258,175 @@ void GameAI::RankOptions(stack<Coordinate> &options){
     }
 }
 
+/* Implementation Note:
+ * The state is estimated from the perspective of
+ * current player. The larger the score, the better
+ * the situation is for the player represented by
+ * whose_turn.
+ */
+
 int GameAI::EstimateState(){
-//we simply add up our policy scores?
-    //this is wrong, cannot find pointers
     if(state_values.find(cur_hash)!=state_values.end()){
         return state_values[cur_hash];
     }else{
-        set_five_value();
-        set_site_value();
-        int score = 0;
-        for(int i=0;i<BOARDSIZE.x;i++){
-            for(int j=0;j<BOARDSIZE.y;j++){
-                score += siteValue[i][j];
+        /*
+         * check for win
+         * priority:
+         * my five move
+         * you five move
+         * my four move
+         * my four+three move
+         * your four move
+         * your four+three move
+         * your half four move
+         * my double three move
+         */
+        stack<Coordinate> my_five_moves;
+        FindMoves(my_five_moves, whose_turn, &have_five_at);
+        if(!my_five_moves.empty()){
+            //ShowBoard(current_board);
+            return LARGEST_NUMBER;
+        }
+        stack<Coordinate> your_five_moves;
+        FindMoves(your_five_moves, ReverseColor(whose_turn), &have_five_at);
+        if((int)your_five_moves.size()>1){
+            return -LARGEST_NUMBER;
+        }else if((int)your_five_moves.size()==1){
+        }else{
+            stack<Coordinate> my_four_moves;
+            FindMoves(my_four_moves, whose_turn, &have_active_four_at);
+            if(!my_four_moves.empty()){
+                //ShowBoard(current_board);
+                return LARGEST_NUMBER;
             }
         }
-        state_values[cur_hash] = score;
+        vector<vector<int>> my_active_three_chart(BOARDSIZE.x);
+        vector<vector<int>> my_half_four_chart(BOARDSIZE.x);
+        for(int i=0;i<BOARDSIZE.x;i++){
+            my_active_three_chart[i].resize(BOARDSIZE.y);
+            my_half_four_chart[i].resize(BOARDSIZE.y);
+            for(int j=0;j<BOARDSIZE.y;j++){
+                if(current_board[i][j]!=REPRESENTATION.at("empty")){
+                    my_active_three_chart[i][j] = 0;
+                    my_half_four_chart[i][j] = 0;
+                    continue;
+                }
+                current_board[i][j] = REPRESENTATION.at(whose_turn);
+                my_active_three_chart[i][j] = num_of_active_three_at(current_board, whose_turn, i,j);
+                my_half_four_chart[i][j] = num_of_half_four_at(current_board, whose_turn, i, j);
+                current_board[i][j] = REPRESENTATION.at("empty");
+            }
+        }
+        bool winByDouble=false;
+        for(int i=0;i<BOARDSIZE.x;i++){
+            for(int j=0;j<BOARDSIZE.y;j++){
+               if((my_active_three_chart[i][j]>0)&&(my_half_four_chart[i][j]>0)){
+                   winByDouble = true;
+                   break;
+               }else if(my_half_four_chart[i][j]>1){
+                   winByDouble = true;
+                   break;
+               }
+            }
+            if(winByDouble){
+               break;
+            }
+        }
+        if(winByDouble){
+            //ShowBoard(current_board);
+            return LARGEST_NUMBER;
+        }
+        bool winByDoubleThree = false;
+        stack<Coordinate> your_four_moves;
+        stack<Coordinate> your_half_four_moves;
+        FindMoves(your_four_moves, ReverseColor(whose_turn), &have_active_four_at);
+        FindMoves(your_half_four_moves, ReverseColor(whose_turn), &have_half_four_at);
+        if(((int)your_four_moves.size()>0)||((int)your_half_four_moves.size())>0){
+        }else{
+            for(int i=0;i<BOARDSIZE.x;i++){
+                for(int j=0;j<BOARDSIZE.y;j++){
+                    if(my_active_three_chart[i][j]>1){
+                        winByDoubleThree = true;
+                        break;
+                    }
+                }
+                if(winByDoubleThree){
+                    break;
+                }
+            }
+        }
+        if(winByDoubleThree){
+            return LARGEST_NUMBER;
+        }
+        /*
+         * counting:
+         * your five move
+         * your four move
+         * my half four move
+         * your half four move
+         * my active three move
+         * your active three move
+         */
+        stack<Coordinate> your_active_three_moves;
+        FindMoves(your_active_three_moves, ReverseColor(whose_turn), &have_active_three_at);
+        int score = 0;
+        score += YOUR_FIVE_MOVE_SCORE*(int)your_five_moves.size();
+        score += YOUR_FOUR_MOVE_SCORE*(int)your_four_moves.size();
+        score += YOUR_HALF_FOUR_MOVE_SCORE*(int)your_half_four_moves.size();
+        score += YOUR_ACTIVE_THREE_MOVE_SCORE*(int)your_active_three_moves.size();
+        for(int i=0;i<BOARDSIZE.x;i++){
+            for(int j=0;j<BOARDSIZE.y;j++){
+                score += MY_HALF_FOUR_MOVE_SCORE*my_half_four_chart[i][j];
+                score += MY_ACTIVE_THREE_MOVE_SCORE*my_active_three_chart[i][j];
+            }
+        }
+        /*
+        if(score!=0){
+            cout<<endl;
+            cout<<score<<endl;
+            ShowBoard(current_board);
+            cout<<"my half four"<<endl;
+            ShowBoard(my_half_four_chart,"number");
+            cout<<"my active four"<<endl;
+            ShowBoard(my_active_three_chart,"number");
+            cout<<"your five moves "<<your_five_moves.size()<<endl;
+            cout<<"your four moves "<<your_four_moves.size()<<endl;
+            cout<<"your half four moves "<<your_half_four_moves.size()<<endl;
+            cout<<"you active three moves "<<your_active_three_moves.size()<<endl;
+            cout<<endl;
+            cout<<"site value"<<endl;
+            ShowBoard(siteValue, "number");
+        }
+        */
         return score;
     }
 }
 
 //watch out for change of board
-void GameAI::FindKillingMoves(stack<Coordinate> & killing_moves, string color){
-    if((color!="black")&&(color!="white")){
-        throw "invalid argument: color should be \'black\' or \'white\'";
-    }
+void GameAI::FindMoves(stack<Coordinate> & moves, string color,
+                       bool (*finder)(const vector<vector<int>>&, string, Coordinate)){
     for(int i=0;i<BOARDSIZE.x;i++){
         for(int j=0;j<BOARDSIZE.y;j++){
             if(current_board[i][j]==REPRESENTATION.at("empty")){
                 current_board[i][j] = REPRESENTATION.at(color);
-                if(have_five_at(current_board, color, i, j)||
-                   have_active_four_at(current_board, color, i, j)){
-                    killing_moves.push(Coordinate(i, j));
+                if(finder(current_board, color, Coordinate(i,j))){
+                    moves.push(Coordinate(i,j));
                 }
                 current_board[i][j] = REPRESENTATION.at("empty");
             }
         }
     }
 }
-
-void GameAI::FindHalfFourMoves(stack<Coordinate> & half_four_moves, string color){
-    if((color!="black")&&(color!="white")){
-        throw "invalid argument: color should be \'black\' or \'white\'";
-    }
-    for(int i=0;i<BOARDSIZE.x;i++){
-        for(int j=0;j<BOARDSIZE.y;j++){
-            if(current_board[i][j]==REPRESENTATION.at("empty")){
-                current_board[i][j] = REPRESENTATION.at(color);
-                stack<Coordinate> inf_dom;
-                get_influence_domain(inf_dom, Coordinate(i,j));//empty places influenced by (i,j)
-                bool isHalfFourMove = false;
-                while(!inf_dom.empty()){
-                    Coordinate move = inf_dom.top();
-                    inf_dom.pop();
-                    current_board[move.x][move.y] = REPRESENTATION.at(color);
-                    if(have_five_at(current_board, color, move.x, move.y)){
-                        isHalfFourMove = true;
-                        break;
-                    }
-                    current_board[move.x][move.y] = REPRESENTATION.at("empty");
-                }
-                if(isHalfFourMove){
-                    half_four_moves.push(Coordinate(i,j));
-                }
-                current_board[i][j] = REPRESENTATION.at("empty");
-            }
-        }
-    }
+void GameAI::FindKillingMoves(stack<Coordinate> &killing_moves, string color){
+    FindMoves(killing_moves, color, &have_five_at);
+    FindMoves(killing_moves, color, &have_active_four_at);
 }
-
-void GameAI::FindActiveThreeMoves(stack<Coordinate> & active_three_moves, string color){
-    if((color!="black")&&(color!="white")){
-        throw "invalid argument: color should be \'black\' or \'white\'";
-    }
-    for(int i=0;i<BOARDSIZE.x;i++){
-        for(int j=0;j<BOARDSIZE.y;j++){
-            if(current_board[i][j]==REPRESENTATION.at("empty")){
-                current_board[i][j] = REPRESENTATION.at(color);
-                stack<Coordinate> inf_dom;
-                get_influence_domain(inf_dom, Coordinate(i,j));//empty places influenced by (i,j)
-                bool isActiveThreeMove = false;
-                while(!inf_dom.empty()){
-                    Coordinate move = inf_dom.top();
-                    inf_dom.pop();
-                    current_board[move.x][move.y] = REPRESENTATION.at(color);
-                    if(have_active_four_at(current_board, color, move.x, move.y)){
-                        isActiveThreeMove = true;
-                        break;
-                    }
-                    current_board[move.x][move.y] = REPRESENTATION.at("empty");
-                }
-                if(isActiveThreeMove){
-                    active_three_moves.push(Coordinate(i,j));
-                }
-                current_board[i][j] = REPRESENTATION.at("empty");
-            }
-        }
-    }
+void GameAI::FindHalfFourMoves(stack<Coordinate> &half_four_moves, string color){
+    FindMoves(half_four_moves, color, &have_half_four_at);
 }
-
+void GameAI::FindActiveThreeMoves(stack<Coordinate> &active_three_moves, string color){
+    FindMoves(active_three_moves, color, &have_active_three_at);
+}
 
 void GameAI::CalculateVCT(bool &canWin, Coordinate &vic_move){
     stack<Coordinate> killing_moves;
@@ -325,7 +437,6 @@ void GameAI::CalculateVCT(bool &canWin, Coordinate &vic_move){
         killing_moves.pop();
         return;
     }
-
     stack<Coordinate> half_four_moves;
     stack<Coordinate> active_three_moves;
     FindHalfFourMoves(half_four_moves, whose_turn);
@@ -337,23 +448,28 @@ void GameAI::CalculateVCT(bool &canWin, Coordinate &vic_move){
         half_four_moves.pop();
         TryMove(move);
         bool canDefend;
-        RespondVCT(canDefend, move, "four");
+        RespondVCT(canDefend,  "four");
+        CancelTry();
         if(!canDefend){
             canWin = true;
             vic_move = move;
-            return;
+            break;
         }
-        CancelTry();
+    }
+    if(canWin){
+        return;
     }
     while(!active_three_moves.empty()){
         Coordinate move = active_three_moves.top();
         active_three_moves.pop();
         TryMove(move);
         bool canDefend;
-        RespondVCT(canDefend, move, "three");
+        RespondVCT(canDefend, "three");
+        CancelTry();
         if(!canDefend){
             canWin = true;
-            return;
+            vic_move = move;
+            break;
         }
     }
     return;
@@ -365,7 +481,10 @@ void GameAI::CalculateVCT(bool &canWin){
 
 }
 
-void GameAI::RespondVCT(bool &canDefend, Coordinate op_move, string type){
+void GameAI::RespondVCT(bool &canDefend, string type){
+    /*
+     * if last move is passed, some time might be saved?
+     */
     if(type=="three"){
         stack<Coordinate> half_four_moves;
         FindHalfFourMoves(half_four_moves, whose_turn);
@@ -385,18 +504,19 @@ void GameAI::RespondVCT(bool &canDefend, Coordinate op_move, string type){
         killing_moves.pop();
         TryMove(move);
         CalculateVCT(opcanWin);
-        if(opcanWin){
-            canDefend = false;
-        }
         CancelTry();
+        if(!opcanWin){
+            break;
+        }
     }
+    canDefend = !opcanWin;
     return;
 }
 
 
 int GameAI::chart(int grade){
     int temp = 0;
-    if(!isFirstPlayer(whose_turn)){
+    if(whose_turn!=my_color){//?
         switch(grade){
            case 0: temp=3;break;
            case 4: temp=35;break;
@@ -410,7 +530,7 @@ int GameAI::chart(int grade){
            default: temp=0;
         }
      }
-    else if(isFirstPlayer(whose_turn)){
+    else if(whose_turn==my_color){//?
         switch(grade){
            case 0: temp=3;break;
            case 4: temp=15;break;
@@ -439,28 +559,28 @@ void GameAI::set_five_value(){
             int grade=0;          //x
             if(j<BOARDSIZE.y-4){
                 for(int n=0;n<5;n++){
-                    grade+=current_board[i][j]+4;
+                    grade+=current_board[i][j+n]+4;
                 }
                 fiveValue[i][j].y=chart(grade);
             }
             grade=0;             //y
             if(i<BOARDSIZE.x-4){
                 for(int n=0;n<5;n++){
-                    grade+=current_board[i][j]+4;
+                    grade+=current_board[i+n][j]+4;
                 }
                 fiveValue[i][j].x=chart(grade);
             }
              grade=0;            //r
             if(i<BOARDSIZE.x-4&&j<BOARDSIZE.y-4){
                 for(int n=0;n<5;n++){
-                    grade+=current_board[i][j]+4;
+                    grade+=current_board[i+n][j+n]+4;
                 }
                 fiveValue[i][j].r=chart(grade);
             }
             grade=0;           //l
             if(j>=4&&i<BOARDSIZE.x-4){
                 for(int n=0;n<5;n++){
-                    grade+=current_board[i][j]+4;
+                    grade+=current_board[i+n][j-n]+4;
                 }
                 fiveValue[i][j].l=chart(grade);
             }
@@ -485,11 +605,12 @@ void GameAI::set_site_value()
                     siteValue[i][j]+=fiveValue[i][j-n].y;
                 if(i-n>=0)
                     siteValue[i][j]+=fiveValue[i-n][j].x;
-                if(i-n>=0&&j-n>=0)
+                if((i-n>=0)&&(j-n>=0))
                     siteValue[i][j]+=fiveValue[i-n][j-n].r;
-                if(i-n>=0&&j+n<=BOARDSIZE.y)
+                if((i-n>=0)&&(j+n<=BOARDSIZE.y))
                     siteValue[i][j]+=fiveValue[i-n][j+n].l;
             }
+            siteValue[i][j] = siteValue[i][j]/10000;//no need for division
         }
     }
 }
@@ -559,20 +680,6 @@ void GameAI::ReverseBoard(){
     }
 }
 
-void GameAI::get_influence_domain(stack<Coordinate> &inf_dom, Coordinate co){
-    map<string, Coordinate>::const_iterator it = DIRECTIONS.cbegin();
-    while(it!=DIRECTIONS.cend()){
-        for(int n=-HASH_SIZE;n<5;n++){
-            Coordinate cur = co+multiply(it->second,n);
-            if((cur>=Coordinate(0,0))&&(cur<BOARDSIZE)&&
-                current_board[cur.x][cur.y]==REPRESENTATION.at("empty")){
-                inf_dom.push(cur);
-            }
-        }
-        it++;
-    }
-}
-
 string GameAI::toString(){
     string str;
     str += string("--------------round") + to_string(round) + " " + (isFirstPlayer(whose_turn)?"first hand":"second hand") + "-------------\n";
@@ -603,3 +710,4 @@ string GameAI::toString(){
 ostream & operator << (ostream & os, GameAI & ai){
     return os<<ai.toString();
 }
+

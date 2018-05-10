@@ -8,7 +8,6 @@
 #include "stone.h"
 using namespace std;
 
-
 const map<string, int> REPRESENTATION = {{"black",1},{"white",-1},{"empty",0}};
 const Coordinate BOARDSIZE(15,15);
 const string WHO_FIRST = "black";

@@ -20,6 +20,7 @@ public:
 
 };
 bool operator< (const Stone &st1, const Stone &st2);
+bool operator == (const Stone &st1, const Stone &st2);
 ostream & operator<<(ostream & os, Stone & rhs);
 
 #endif // STONE_H

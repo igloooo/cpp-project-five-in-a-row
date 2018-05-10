@@ -59,17 +59,36 @@ void test_game_model(){
     showBoard(myModel);
 }
 
-int main()
+
 /*
  * Function: main
- * usage: main()
+ * usage: implicitly used
  * -----------------------------
- * This function is used to call the functions in the three other files.
+ *
  */
+int main()
 {
-    GameModel myModel(HUMAN,COMPUTER);
-    myModel.TakeMove(1,1);
-    GameAI myAI(myModel, "white", 7);
-    cout<<myAI<<endl;
-    //myModel.TakeMove(myAI.Decide());
+    GameModel game(COMPUTER,HUMAN);
+    /*
+    game.TakeMove(1,1);
+    game.TakeMove(6,6);
+    game.TakeMove(2,2);
+    game.TakeMove(10,10);
+    game.TakeMove(3,3);
+    game.TakeMove(11,11);
+    game.TakeMove(4,4);
+    game.TakeMove(13,13);
+    game.TakeMove(3,5);
+    game.TakeMove(0,14);
+    game.TakeMove(5,3);
+    game.TakeMove(14,0);
+    game.TakeMove(6,2);
+    showBoard(game);
+    */
+    game.TakeMove(7,7);
+    game.TakeMove(7,6);
+    GameAI ai(game,"black");
+    Coordinate new_move = ai.Decide();
+    cout<<new_move.x<<","<<new_move.y<<endl;
+    return 0;
 }

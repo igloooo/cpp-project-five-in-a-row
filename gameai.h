@@ -21,7 +21,7 @@ public:
     void Update(GameModel &game);//compare the history and do updates
 
     Coordinate Decide();//main searching algorithm
-    int ABSearch(int p_ab);//recurrent steps
+    int ABSearch(int alpha, int beta);//recurrent steps
 
     string TryMove(Coordinate move);//TakeMove and update hash. Return terminated/continuing/illegal. Illegal result will have hash updated.
     void CancelTry();//cancel last move and update hash. ?Illegal action throw error
@@ -36,9 +36,10 @@ public:
     //part of the policy
     void RankOptions(stack<Coordinate> & options);
 
-    int EstimateState();//by adding up point scores
+    int EstimateState();//in whose_turn's perspective
 
     //The following two methods operates on board. Bug warning!
+    void FindMoves(stack<Coordinate> &moves, string color, bool(*finder)(const vector<vector<int>>&, string, Coordinate));
     void FindKillingMoves(stack<Coordinate> & killing_moves, string color);
     void FindHalfFourMoves(stack<Coordinate> & half_four_moves, string color);
     void FindActiveThreeMoves(stack<Coordinate> & active_three_moves, string color);
@@ -47,14 +48,20 @@ public:
     //But opponents' four, five are not taken into account.
     void CalculateVCT(bool & canWin,Coordinate & vic_move);
     void CalculateVCT(bool & canWin);
-    void RespondVCT(bool & canDefend, Coordinate op_move, string type);//type = "four" or "three"
+    void RespondVCT(bool & canDefend, string type);//type = "four" or "three"
     string toString();
-
 
 private:
     static const int LARGEST_NUMBER = 1000000;
+    static const int YOUR_FIVE_MOVE_SCORE = -100;
+    static const int YOUR_FOUR_MOVE_SCORE = -60;
+    static const int MY_HALF_FOUR_MOVE_SCORE = 81;
+    static const int MY_ACTIVE_THREE_MOVE_SCORE = 101;
+    static const int YOUR_HALF_FOUR_MOVE_SCORE = -20;
+    static const int YOUR_ACTIVE_THREE_MOVE_SCORE = -30/2;
+
     static const int HASH_SIZE = 4;
-    //int global_step=0;
+    int global_step=0;
     const int MAX_DEPTH;
     string my_color;
     int game_depth;//the number of steps that has been played
@@ -92,13 +99,10 @@ private:
     vector<vector<value>> fiveValue;
     vector<vector<int>> siteValue;
 
-
     /*helper methods*/
     void sort(vector<int> &keys, vector<Coordinate> &values, int h, int t);//sort in increasing order
     void apply_xor(vector<int> &result, const vector<int> &bitstr1, const vector<int> &bitstr2);
     void ReverseBoard();//This method is to help set_five_value. It only works under default representation
-    void get_influence_domain(stack<Coordinate> & inf_dom, Coordinate co);//return empty places influenced by co
-
 
     //The following two hard-coded methods only work under default representations.
     void set_five_value();
