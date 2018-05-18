@@ -19,11 +19,11 @@ void move_and_display(GameModel & model, int x, int y){
     cout<<endl;
 }
 void showBoard(GameModel & model){
-    for(int i=0;i<BOARDSIZE.x;i++){
+    for(int i=0;i<BOARDSIZEX;i++){
         if(i!=0){
             cout<<"-----------------------------------------------------------"<<endl;
         }
-        for(int j=0;j<BOARDSIZE.y;j++){
+        for(int j=0;j<BOARDSIZEY;j++){
             string piece = model.at(i,j).color;
             if(piece=="black"){
                 cout<<" X ";
@@ -32,7 +32,7 @@ void showBoard(GameModel & model){
             }else{
                 cout<<" O ";
             }
-            if(j<BOARDSIZE.y-1){
+            if(j<BOARDSIZEY-1){
                 cout<<"|";
             }
         }
@@ -68,9 +68,8 @@ void test_game_model(){
  */
 int main()
 {
-    GameModel game(COMPUTER,HUMAN);
-    /*
-    game.TakeMove(1,1);
+    GameModel game(HUMAN,COMPUTER);
+    //game.TakeMove(1,1);
     game.TakeMove(6,6);
     game.TakeMove(2,2);
     game.TakeMove(10,10);
@@ -82,12 +81,11 @@ int main()
     game.TakeMove(0,14);
     game.TakeMove(5,3);
     game.TakeMove(14,0);
-    game.TakeMove(6,2);
+    //game.TakeMove(6,2);
     showBoard(game);
-    */
-    game.TakeMove(7,7);
-    game.TakeMove(7,6);
-    GameAI ai(game,"black");
+    //game.TakeMove(7,7);
+    //game.TakeMove(7,6);
+    GameAI ai(game,"white");
     Coordinate new_move = ai.Decide();
     cout<<new_move.x<<","<<new_move.y<<endl;
     return 0;

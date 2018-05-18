@@ -8,9 +8,16 @@
 #include "stone.h"
 using namespace std;
 
-const map<string, int> REPRESENTATION = {{"black",1},{"white",-1},{"empty",0}};
-const Coordinate BOARDSIZE(15,15);
+const int WHITE_R = -1;
+const int BLACK_R = 1;
+const int EMPTY_R = 0;
+const int BOARDSIZEX = 15;
+const int BOARDSIZEY = 15;
 const string WHO_FIRST = "black";
+const Coordinate BOARDSIZE(15,15);
+const map<string, int> REPRESENTATION = {{"black", BLACK_R},
+                                         {"white", WHITE_R},
+                                         {"empty", EMPTY_R}};
 const map<string, Coordinate> DIRECTIONS = {{"x",Coordinate(1,0)},
                                             {"y",Coordinate(0,1)},
                                             {"d",Coordinate(1,1)},
@@ -69,6 +76,8 @@ protected:
     const Player FIRST_PLAYER;
     const Player SECOND_PLAYER;
     string whose_turn;
+    int whose_turn_repre;
+    int opponent_repre;
     bool terminated;
     string winner;//"black","white","tie","None"
     int round;

@@ -14,14 +14,16 @@ GameModel::GameModel(Player first_player, Player second_player):FIRST_PLAYER(fir
     terminated = false;
     winner = "None";
     round = 1;
-    current_board.resize(BOARDSIZE.x);
-    for(int i=0;i<BOARDSIZE.x;i++){
-        current_board[i].resize(BOARDSIZE.y);
-        for(int j=0; j<BOARDSIZE.y; j++){
-            current_board[i][j] = REPRESENTATION.at("empty");
+    current_board.resize(BOARDSIZEX);
+    for(int i=0;i<BOARDSIZEX;i++){
+        current_board[i].resize(BOARDSIZEY);
+        for(int j=0; j<BOARDSIZEY; j++){
+            current_board[i][j] = EMPTY_R;
         }
     }
-    num_of_empty_places = BOARDSIZE.x*BOARDSIZE.y;
+    num_of_empty_places = BOARDSIZEX*BOARDSIZEY;
+    whose_turn_repre = REPRESENTATION.at(whose_turn);
+    opponent_repre = REPRESENTATION.at(ReverseColor(whose_turn));
 }
 
 
@@ -36,12 +38,13 @@ string GameModel::TakeMove(Coordinate xy){
             if(!isFirstPlayer(whose_turn)){
                 round += 1;
             }
-            current_board[xy.x][xy.y] = REPRESENTATION.at(whose_turn);
+            current_board[xy.x][xy.y] = whose_turn_repre;
             Stone new_stone_record = Stone(xy.x, xy.y, whose_turn);
             history_moves.push_back(new_stone_record);
             num_of_empty_places -= 1;
             whose_turn = ReverseColor(whose_turn);
-
+            whose_turn_repre = REPRESENTATION.at(whose_turn);
+            opponent_repre = REPRESENTATION.at(ReverseColor(whose_turn));
             if((checking_result=="white")||
                  (checking_result=="black")||
                  (checking_result=="tie")){
@@ -62,13 +65,13 @@ string GameModel::TakeMove(int x, int y){
 
 string GameModel::CheckRule(Coordinate xy){
     string result;
-    if((xy.x)<0||(xy.x>=BOARDSIZE.x)||(xy.y<0)||(xy.y>=BOARDSIZE.y)){
+    if((xy.x)<0||(xy.x>=BOARDSIZEX)||(xy.y<0)||(xy.y>=BOARDSIZEY)){
         result = "illegal";
-    }else if(current_board[xy.x][xy.y]!=REPRESENTATION.at("empty")){
+    }else if(current_board[xy.x][xy.y]!=EMPTY_R){
         result = "illegal";
     }else{
         //this is a dangerous line since it changes board without invoking methods
-        current_board[xy.x][xy.y] = REPRESENTATION.at(whose_turn);
+        current_board[xy.x][xy.y] = whose_turn_repre;
         if(have_five_at(current_board, whose_turn, xy)){
             result = whose_turn;
         }else if(num_of_empty_places==1){
@@ -78,7 +81,7 @@ string GameModel::CheckRule(Coordinate xy){
         }else{
             result = "continuing";
         }
-        current_board[xy.x][xy.y] = REPRESENTATION.at("empty");
+        current_board[xy.x][xy.y] = EMPTY_R;
     }
     return result;
 }
@@ -106,7 +109,7 @@ bool GameModel::CancelLastMove(){
         }
         Stone last_move = get_last_move();
         history_moves.pop_back();
-        current_board[last_move.x][last_move.y] = REPRESENTATION.at("empty");
+        current_board[last_move.x][last_move.y] = EMPTY_R;
         if(!isFirstPlayer(last_move.color)){
             round -= 1;
         }
@@ -169,11 +172,11 @@ Stone GameModel::at(Coordinate xy){
 
 Stone GameModel::at(int x, int y){
     int value = current_board[x][y];
-    if(value==REPRESENTATION.at("black")){
+    if(value==BLACK_R){
         return Stone(x,y,"black");
-    }else if(value==REPRESENTATION.at("white")){
+    }else if(value==WHITE_R){
         return Stone(x,y,"white");
-    }else if(value==REPRESENTATION.at("empty")){
+    }else if(value==EMPTY_R){
         return Stone(x,y,"empty");
     }else{
         throw "unexpected error";

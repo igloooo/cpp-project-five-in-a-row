@@ -241,7 +241,7 @@ void get_influence_domain(stack<Coordinate> &inf_dom, const vector<vector<int> >
     for(int n=-4;n<5;n++){
         Coordinate cur = co+multiply(DIRECTIONS.at(direc),n);
         if((cur>=Coordinate(0,0))&&(cur<BOARDSIZE)&&
-            board[cur.x][cur.y]==REPRESENTATION.at("empty")){
+            board[cur.x][cur.y]==EMPTY_R){
             inf_dom.push(cur);
         }
     }
@@ -250,11 +250,11 @@ void get_influence_domain(stack<Coordinate> &inf_dom, const vector<vector<int> >
 
 void ShowBoard(const vector<vector<int>> & board, string mode){
     if(mode=="symbol"){
-        for(int i=0;i<BOARDSIZE.x;i++){
+        for(int i=0;i<BOARDSIZEX;i++){
                 if(i!=0){
                     cout<<"-----------------------------------------------------------"<<endl;
                 }
-                for(int j=0;j<BOARDSIZE.y;j++){
+                for(int j=0;j<BOARDSIZEY;j++){
                     int piece = board[i][j];
                     if(piece==1){
                         cout<<" X ";
@@ -263,20 +263,20 @@ void ShowBoard(const vector<vector<int>> & board, string mode){
                     }else{
                         cout<<" O ";
                     }
-                    if(j<BOARDSIZE.y-1){
+                    if(j<BOARDSIZEY-1){
                         cout<<"|";
                     }
                  }
                  cout<<endl;
              }
     }else if(mode=="number"){
-        for(int i=0;i<BOARDSIZE.x;i++){
+        for(int i=0;i<BOARDSIZEX;i++){
                 if(i!=0){
                     cout<<"-----------------------------------------------------------"<<endl;
                 }
-                for(int j=0;j<BOARDSIZE.y;j++){
+                for(int j=0;j<BOARDSIZEY;j++){
                     cout<<" "<<to_string(board[i][j])<<" ";
-                    if(j<BOARDSIZE.y-1){
+                    if(j<BOARDSIZEY-1){
                         cout<<"|";
                     }
                  }
@@ -284,4 +284,41 @@ void ShowBoard(const vector<vector<int>> & board, string mode){
              }
     }
 
+}
+
+void ShowBoard(const int board[BOARDSIZEX][BOARDSIZEY], string mode){
+        if(mode=="symbol"){
+        for(int i=0;i<BOARDSIZEX;i++){
+                if(i!=0){
+                    cout<<"-----------------------------------------------------------"<<endl;
+                }
+                for(int j=0;j<BOARDSIZEY;j++){
+                    int piece = board[i][j];
+                    if(piece==1){
+                        cout<<" X ";
+                    }else if(piece==0){
+                        cout<<"   ";
+                    }else{
+                        cout<<" O ";
+                    }
+                    if(j<BOARDSIZEY-1){
+                        cout<<"|";
+                    }
+                 }
+                 cout<<endl;
+             }
+    }else if(mode=="number"){
+        for(int i=0;i<BOARDSIZEX;i++){
+                if(i!=0){
+                    cout<<"-----------------------------------------------------------"<<endl;
+                }
+                for(int j=0;j<BOARDSIZEY;j++){
+                    cout<<" "<<board[i][j]<<" ";
+                    if(j<BOARDSIZEY-1){
+                        cout<<"|";
+                    }
+                 }
+                 cout<<endl;
+             }
+    }
 }

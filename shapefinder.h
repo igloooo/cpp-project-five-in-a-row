@@ -95,7 +95,8 @@ void get_influence_domain(stack<Coordinate> & inf_dom, const vector<vector<int>>
                           Coordinate co);
 void get_influence_domain(stack<Coordinate> &inf_dom, const vector<vector<int> > &board,
                            Coordinate co, string direc);
-
+//the boards are supposed to be BOARDSIZEX*BOARDSIZEY
 void ShowBoard(const vector<vector<int>> &board, string mode="symbol");
+void ShowBoard(const int board[BOARDSIZEX][BOARDSIZEY], string mode="symbol");
 
 #endif // SHAPEFINDER_H
