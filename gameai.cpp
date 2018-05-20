@@ -1,3 +1,9 @@
+/*
+ * File: gameai.cpp
+ * ----------------------------
+ * This file implements the class
+ * gameai.
+ */
 #include "gameai.h"
 #include <iostream>
 #include "gamemodel.h"
@@ -62,13 +68,6 @@ void GameAI::Update(GameModel &game){
     for(int i=0; i<game.get_steps(); i++){
         history_moves.push_back(game.get_history_move(i));
         UpdateHash(history_moves[i]);
-        /*
-        for(int x=-AVAILABLE_NEIGHBORHOOD;x<=AVAILABLE_NEIGHBORHOOD;x++){
-            for(int y=-AVAILABLE_NEIGHBORHOOD;y<=AVAILABLE_NEIGHBORHOOD;y++){
-                availability[history_moves.x+x][history_moves.y+y] = 1;
-            }
-        }
-        */
     }
     num_of_empty_places = game.get_num_of_empty_places();
     game_depth = game.get_steps();
@@ -89,22 +88,28 @@ Coordinate GameAI::quick_computer_move(){
 }
 
 Coordinate GameAI::computer_move(){
-    //see if vct exists
+    //check if ai's vct exists
     bool canWin = false;
     Coordinate VCT_move = CalculateVCT(canWin, OUTTREE_VCT_DEPTH, true);
     if(canWin){
-        //for(int i=0;i<(int)main_variation.size();i++){
-        //    Stone cur = main_variation[i];
-        //    cout<<cur.x<<","<<cur.y<<cur.color<<endl;
-        //}
         return VCT_move;
     }
-    /*
+
+    //check if ai's opponents' vct exitst
+    Coordinate move_attempt = WorstOption(); //an "empty" move
+    canWin = false;
+    TryMove(move_attempt);
+    VCT_move = CalculateVCT(canWin, OUTTREE_VCT_DEPTH, true);
+    CancelTry();
+    if(canWin){
+        return VCT_move;
+    }
+
     //do ab search, direct winning has been excluded.
     queue<Coordinate> options;
     RankOptions(options);
-    Coordinate move;//the move to try
-    Coordinate opt_move;
+    Coordinate move; //the move to try
+    Coordinate opt_move; //optimal move so far
     int alpha = -LARGEST_NUMBER-1;
     int beta = LARGEST_NUMBER + 1;
     while(!options.empty()){
@@ -114,6 +119,7 @@ Coordinate GameAI::computer_move(){
         if(result=="illegal"){
             continue;
         }
+        //choose maximal value among the beta values of child nodes as new alpha value
         int new_alpha = ABSearch(alpha, beta);
         if(new_alpha>alpha){
             alpha = new_alpha;
@@ -121,125 +127,9 @@ Coordinate GameAI::computer_move(){
         }
         CancelTry();
     }
-    */
-    Coordinate opt_move = quick_computer_move();
-
-    //see if opponent's vct exist
-    canWin = false;
-    TryMove(opt_move);
-    VCT_move = CalculateVCT(canWin, OUTTREE_VCT_DEPTH, true);
-    CancelTry();
-    if(canWin){
-        cout<<"dangerous!"<<endl;
-        //for(int i=0;i<(int)main_variation.size();i++){
-        //    Stone cur = main_variation[i];
-        //    cout<<cur.x<<","<<cur.y<<cur.color<<endl;
-        //}
-        return VCT_move;
-    }else{
-        return opt_move;
-    }
+    return opt_move;
 }
 
-int GameAI::ABSearch(int alpha, int beta){
-    global_step += 1;
-    //cout<<get_relative_depth()<<endl;
-
-    if(global_step%9999==0){
-        cout<<global_step<<endl;
-        cout<<get_relative_depth()<<endl;
-        cout<<alpha<<","<<beta<<endl;
-        ShowBoard(current_board);
-        //ShowBoard(black_active_twos,"number");
-    }
-
-    /*
-    if(get_relative_depth()==5){
-        cout<<alpha<<","<<beta<<endl;
-    }
-    */
-    if(get_relative_depth()<MAX_DEPTH){
-    //in tree phase
-        queue<Coordinate> options;
-        RankOptions(options);
-        Coordinate opt_move;
-        Coordinate move;
-        while(!options.empty()){
-            move = options.front();
-            options.pop();
-            if(isMaxNode()){
-                string result = TryMove(move);
-                if(result=="illegal"){
-                    continue;
-                }else if(result=="terminated"){
-                    CancelTry();
-                    //ShowBoard();
-                    return LARGEST_NUMBER;
-                }else{
-                    int new_alpha = ABSearch(alpha, beta);
-                    //keep track of optimal move and ab
-                    if(new_alpha>alpha){
-                        alpha = new_alpha;
-                        opt_move = move;
-                    }
-                    //prunning
-                    if(alpha >= beta){
-                        //cout<<"prunning happens"<<endl;
-                        CancelTry();
-                        return alpha;
-                    }
-                }
-            }else{
-                string result = TryMove(move);
-                if(result=="illegal"){
-                    continue;
-                }else if(result=="terminated"){
-                    CancelTry();
-                    //ShowBoard();
-                    return -LARGEST_NUMBER;
-                }else{
-                    int new_beta = ABSearch(alpha, beta);
-                    if(new_beta<beta){
-                        beta = new_beta;
-                        opt_move = move;
-                    }
-                    if(alpha>=beta){
-                        //cout<<"prunning happens"<<endl;
-                        CancelTry();
-                        return beta;
-                    }
-                }
-            }
-            CancelTry();
-        }
-        if(isMaxNode()){
-            return alpha;
-        }else{
-            return beta;
-        }
-    }else if(get_relative_depth()==MAX_DEPTH-1){
-        bool canWin=false;
-        CalculateVCT(canWin, INTREE_VCT_DEPTH);
-        if(canWin){
-            if(whose_turn==my_color){
-                return LARGEST_NUMBER;
-            }else{
-                return -LARGEST_NUMBER;
-            }
-        }
-    }else{
-    //at the leaf
-        if(my_color=="black"){
-            int score = EstimateState();
-            //cout<<score<<endl;
-            return score;
-        }else{
-            int score = -EstimateState();
-            //cout<<score<<endl;
-            return score;
-        }
-    }
-}
 
 string GameAI::TryMove(Coordinate move){
     //the order cannot be changed.
@@ -252,20 +142,23 @@ string GameAI::TryMove(Coordinate move){
     whose_turn_repre = REPRESENTATION.at(whose_turn);
     opponent_repre = REPRESENTATION.at(ReverseColor(whose_turn));
 
+    //templates are updated whenever changes occurs to the board
     FitTemplates(GetVector(move.y, "x"), 15, move.y, "x", false, move.x, EMPTY_R);
     FitTemplates(GetVector(move.x, "y"), 15, move.x, "y", false, move.y, EMPTY_R);
     FitTemplates(GetVector(move.x-move.y, "d"), 15-abs(move.x-move.y), move.x-move.y, "d", false, min(move.x, move.y), EMPTY_R);
     FitTemplates(GetVector(14-(move.x+move.y), "a"), 15-abs(14-(move.x+move.y)), 14-(move.x+move.y), "a", false, min(14-move.x, move.y), EMPTY_R);
-    //ShowBoard(current_board);
+
     UpdateHash(get_last_move());
     return result;
 }
+
 
 void GameAI::CancelTry(){//doesn't capture the error of cancel in empty board, but that doesn't matter
     //the order cannot be changed.
     RedoHash();
 
     Stone move = get_last_move();
+
     current_board2[move.x][move.y] = 0;
 
     CancelLastMove();
@@ -276,17 +169,618 @@ void GameAI::CancelTry(){//doesn't capture the error of cancel in empty board, b
     FitTemplates(GetVector(move.x, "y"), 15, move.x, "y", false, move.y, whose_turn_repre);
     FitTemplates(GetVector(move.x-move.y, "d"), 15-abs(move.x-move.y), move.x-move.y, "d", false, min(move.x, move.y), whose_turn_repre);
     FitTemplates(GetVector(14-(move.x+move.y), "a"), 15-abs(14-(move.x+move.y)), 14-(move.x+move.y), "a", false, min(14-move.x, move.y), whose_turn_repre);
-    //ShowBoard(current_board);
 }
 
-bool GameAI::isMaxNode(){
-    int relative_depth = get_relative_depth();
-    return relative_depth%2==0;
+
+int GameAI::ABSearch(int alpha, int beta){
+    global_step += 1;
+    /*
+    if(global_step%9999==0){
+        cout<<global_step<<endl;
+        cout<<get_relative_depth()<<endl;
+        cout<<alpha<<","<<beta<<endl;
+        ShowBoard(current_board);
+    }
+    */
+    if(get_relative_depth()<MAX_DEPTH){
+    //in tree phase
+        queue<Coordinate> options;
+        //generate and rank moves to search
+        RankOptions(options);
+        Coordinate opt_move;
+        Coordinate move;
+        while(!options.empty()){
+            move = options.front();
+            options.pop();
+            if(isMaxNode()){
+                string result = TryMove(move);
+                if(result=="illegal"){
+                    continue;
+                }else if(result=="terminated"){
+                    CancelTry();
+                    return LARGEST_NUMBER;
+                }else{
+                    int new_alpha = ABSearch(alpha, beta);
+                    //keep track of optimal move and ab
+                    if(new_alpha>alpha){
+                        alpha = new_alpha;
+                        opt_move = move;
+                    }
+                    //prunning
+                    if(alpha >= beta){
+                        CancelTry();
+                        return alpha;
+                    }
+                }
+            }else{
+                string result = TryMove(move);
+                if(result=="illegal"){
+                    continue;
+                }else if(result=="terminated"){
+                    CancelTry();
+                    return -LARGEST_NUMBER;
+                }else{
+                    int new_beta = ABSearch(alpha, beta);
+                    if(new_beta<beta){
+                        beta = new_beta;
+                        opt_move = move;
+                    }
+                    if(alpha>=beta){
+                        CancelTry();
+                        return beta;
+                    }
+                }
+            }
+            CancelTry();
+        }
+        if(get_relative_depth()==MAX_DEPTH-1){
+        //perform vct from a different perspective as leaf
+            bool canWin=false;
+            CalculateVCT(canWin, INTREE_VCT_DEPTH);
+            if(canWin){
+                if(isMaxNode()){
+                    return alpha + 150;
+                }else{
+                    return beta -150;
+                }
+            }
+        }else{
+        //max node changes alpha, minimum node changes beta value
+            if(isMaxNode()){
+                return alpha;
+            }else{
+                return beta;
+            }
+        }
+
+    }else{
+    //at the leaf
+        if(my_color=="black"){
+            return EstimateState();
+        }else{
+            return -EstimateState();
+        }
+    }
 }
 
-int GameAI::get_relative_depth(){
-    return get_steps()-game_depth;
+void GameAI::RankOptions(queue<Coordinate> &options){
+    set_five_value();
+    set_site_value();
+    int len = BOARDSIZEX*BOARDSIZEY;
+    vector<int> keys(len);
+    vector<Coordinate> values(len);
+    for(int i=0;i<BOARDSIZEX;i++){
+    for(int j=0;j<BOARDSIZEY;j++){
+        keys[i*BOARDSIZEX+j] = siteValue[i][j];
+        values[i*BOARDSIZEX+j] = Coordinate(i,j);
+    }
+    }
+    sort(keys, values, 0, len);
+    int n = 0;
+    for(int i=len;i>0;i--){
+        if(n>=10){
+            break;
+        }
+        if(CheckRule(values[i])!="illegal"){
+            options.push(values[i]);
+            n += 1;
+        }
+    }
 }
+
+Coordinate GameAI::WorstOption(){
+    set_five_value();
+    set_site_value();
+    int minimum = 1000000;
+    Coordinate worst_move;
+    for(int i=0;i<BOARDSIZEX;i++){
+    for(int j=0;j<BOARDSIZEY;j++){
+        if((minimum>siteValue[i][j])&&(CheckRule(Coordinate(i,j))!="illegal")){
+            minimum = siteValue[i][j];
+            worst_move = Coordinate(i,j);
+        }
+    }
+    }
+    return worst_move;
+}
+
+/*
+ * Implementation Note:
+ *
+ * The estimation checking for win, then perform
+ * vct, finally calculating scores based on shapes.
+ * Different the perspective taken during searching,
+ * here the larger the score, the more advantage black
+ * has.
+ */
+
+int GameAI::EstimateState(){
+    if(state_values.find(cur_hash)!=state_values.end()){
+        return state_values[cur_hash];
+    }else{
+        int static_score = 0;
+        if(whose_turn=="black"){
+            /*
+             * check for win (might not be necessary if VCT is present)
+             * priority:
+             * my five or four
+             * your five or four
+             * my double
+             * your half four
+             * my double three
+             */
+            if(num_of_black_wins||num_of_black_half_fours){
+            //existence of four or half four
+                state_values[cur_hash] = LARGEST_NUMBER;
+                return LARGEST_NUMBER;
+            }else if(num_of_white_wins){
+            //existence of opponent's four
+                state_values[cur_hash] = -LARGEST_NUMBER;
+                return -LARGEST_NUMBER;
+            }else if(num_of_black_active_threes){
+                state_values[cur_hash] = LARGEST_NUMBER;
+                return LARGEST_NUMBER;
+            }else{
+                bool canWin = false;
+                CalculateVCT(canWin, INTREE_VCT_DEPTH);
+                if(canWin){
+                    state_values[cur_hash] = 150;
+                    return 150;
+                }
+                //we can also replace vct section by checking for double three, etc.
+                /*
+                for(int i=0;i<BOARDSIZEX;i++){
+                    for(int j=0;j<BOARDSIZEY;j++){
+                        if(black_half_threes[i][j]>1){
+                            state_values[cur_hash] = LARGEST_NUMBER;
+                            return LARGEST_NUMBER;
+                        }else if(black_half_threes[i][j]&&black_active_twos[i][j]){
+                            state_values[cur_hash] = LARGEST_NUMBER;
+                            return LARGEST_NUMBER;
+                        }
+                    }
+                }
+                if(num_of_white_half_fours==0){
+                    for(int i=0;i<15;i++){
+                        for(int j=0;i<15;j++){
+                            if(black_active_twos[i][j]>1){
+                                state_values[cur_hash] = LARGEST_NUMBER;
+                                return LARGEST_NUMBER;
+                            }
+                        }
+                    }
+                }
+                */
+                //score counting
+                static_score += SCORE_FOR_MY_HALF_THREE*num_of_black_half_threes;
+                static_score += SCORE_FOR_MY_ACTIVE_TWO*num_of_black_active_twos;
+                static_score += SCORE_FOR_YOUR_HALF_FOUR*num_of_white_half_fours;
+                static_score += SCORE_FOR_YOUR_ACTIVE_THREE*num_of_white_active_threes;
+                static_score += SCORE_FOR_YOUR_HALF_THREE*num_of_white_half_threes;
+                static_score += SCORE_FOR_YOUR_ACTIVE_TWO*num_of_white_active_twos;
+                state_values[cur_hash] = static_score;
+                return static_score;
+            }
+        }
+        /*---------------------white counter part-------------------------------------*/
+        if(whose_turn=="white"){
+            /*
+             * check for win (might not be necessary if VCT is present)
+             * priority:
+             * my five or four
+             * your five or four
+             * my double
+             * your half four
+             * my double three
+             */
+            if(num_of_white_wins||num_of_white_half_fours){
+                state_values[cur_hash] = -LARGEST_NUMBER;
+                return -LARGEST_NUMBER;
+            }else if(num_of_black_wins){
+                state_values[cur_hash] = LARGEST_NUMBER;
+                return LARGEST_NUMBER;
+            }else if(num_of_white_active_threes){
+                state_values[cur_hash] = -LARGEST_NUMBER;
+                return -LARGEST_NUMBER;
+            }else{
+                bool canWin=false;
+                CalculateVCT(canWin, INTREE_VCT_DEPTH);
+                if(canWin){
+                    state_values[cur_hash] = -150;
+                    return -150;
+                }
+                /*
+                for(int i=0;i<BOARDSIZEX;i++){
+                    for(int j=0;j<BOARDSIZEY;j++){
+                        if(white_half_threes[i][j]>1){
+                            state_values[cur_hash] = -LARGEST_NUMBER;
+                            return -LARGEST_NUMBER;
+                        }else if(white_half_threes[i][j]&&white_active_twos[i][j]){
+                            state_values[cur_hash] = -LARGEST_NUMBER;
+                            return -LARGEST_NUMBER;
+                        }
+                    }
+                }
+                if(num_of_black_half_fours==0){
+                    for(int i=0;i<15;i++){
+                        for(int j=0;i<15;j++){
+                            if(white_active_twos[i][j]>1){
+                                state_values[cur_hash] = -LARGEST_NUMBER;
+                                return -LARGEST_NUMBER;
+                            }
+                        }
+                    }
+                }
+                */
+                static_score -= SCORE_FOR_MY_HALF_THREE*num_of_white_half_threes;
+                static_score -= SCORE_FOR_MY_ACTIVE_TWO*num_of_white_active_twos;
+                static_score -= SCORE_FOR_YOUR_HALF_FOUR*num_of_black_half_fours;
+                static_score -= SCORE_FOR_YOUR_ACTIVE_THREE*num_of_black_active_threes;
+                static_score -= SCORE_FOR_YOUR_HALF_THREE*num_of_black_half_threes;
+                static_score -= SCORE_FOR_YOUR_ACTIVE_TWO*num_of_black_active_twos;
+                state_values[cur_hash] = static_score;
+                return static_score;
+            }
+        }
+    }
+}
+
+Coordinate GameAI::CalculateVCT(bool &canWin, int max_depth, bool provide_move){
+    /*
+     * Implementation note:
+     * Assume that opponents have no five or four
+     * Assume that current player has no five as
+     * well.
+     * They are guarenteed by the implementation
+     * of EstimateState.
+     *
+     */
+     if(get_relative_depth()>max_depth){
+         canWin = false;
+         return Coordinate(-1,-1);
+     }
+     if(whose_turn_repre==BLACK_R){
+         if(num_of_black_wins>0){
+             canWin = true;
+             if(provide_move){
+             //if there is request for moves
+                 for(int i=0;i<BOARDSIZEX;i++){
+                 for(int j=0;j<BOARDSIZEY;j++){
+                     if(black_fours[i][j]>0){
+                         return Coordinate(i,j);
+                     }
+                 }
+                 }
+             }else{
+                 return Coordinate(-1,-1);
+             }
+         }else if(num_of_black_half_fours>0){
+             canWin = true;
+             if(provide_move){
+                 for(int i=0;i<BOARDSIZEX;i++){
+                 for(int j=0;j<BOARDSIZEY;j++){
+                     if(black_half_fours[i][j]>0){
+                         return Coordinate(i,j);
+                     }
+                 }
+                 }
+             }else{
+                 return Coordinate(-1,-1);
+             }
+         }else if(num_of_white_wins>0){
+         //give up if opponent has four
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_black_active_threes*num_of_white_half_fours>0){
+         //we have active three while opponent have half fours
+             bool canDefend = true;
+             for(int i=0;i<BOARDSIZEX;i++){
+             for(int j=0;j<BOARDSIZEY;j++){
+                 if(white_half_fours[i][j]>0){
+                     TryMove(Coordinate(i,j));
+                     RespondVCT(canDefend, max_depth);
+
+                     CancelTry();
+                     if(!canDefend){
+                         canWin = true;
+                         return Coordinate(i,j);
+                     }
+                 }
+             }
+             }
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_black_active_threes-num_of_white_half_fours<0){
+         //we don't have active three but opponent has half four
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_black_active_threes-num_of_white_half_fours>0){
+         //we have active three and opponent has half four
+             canWin = true;
+             if(provide_move){
+                 for(int i=0;i<BOARDSIZEX;i++){
+                 for(int j=0;j<BOARDSIZEY;j++){
+                     if(black_active_threes[i][j]>0){
+                         return Coordinate(i,j);
+                     }
+                 }
+                 }
+             }else{
+                 return Coordinate(-1,-1);
+             }
+         }else if(num_of_black_half_threes>0){
+         //try to generatr half four
+             bool canDefend = true;
+             for(int i=0;i<15;i++){
+             for(int j=0;j<15;j++){
+                 if(black_half_threes[i][j]>0){
+                     Coordinate cur_move = Coordinate(i,j);
+                     assert(TryMove(cur_move)=="continuing");
+                     RespondVCT(canDefend, max_depth);
+                     CancelTry();
+                     if(!canDefend){
+                         canWin = true;
+                         return cur_move;
+                     }
+                 }
+             }
+             }
+         }
+         if(num_of_white_active_threes>0){
+         //prunning when opponent already has active three while you are just going to produce a three
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_black_active_twos>0){
+         //try to generate active three
+             bool canDefend = true;
+             for(int i=0;i<15;i++){
+             for(int j=0;j<15;j++){
+                 if(black_active_twos[i][j]>0){
+                     Coordinate cur_move = Coordinate(i,j);
+                     assert(TryMove(cur_move)=="continuing");
+                     RespondVCT(canDefend, max_depth);
+                     CancelTry();
+                     if(!canDefend){
+                         canWin = true;
+                         return cur_move;
+                     }
+                 }
+             }
+             }
+         }else{
+             canWin = false;
+             return Coordinate(-1,-1);
+         }
+     }
+
+     /*--------------------white counter part------------------------------*/
+
+     else{
+         if(num_of_white_wins>0){
+             canWin = true;
+             if(provide_move){
+                 for(int i=0;i<BOARDSIZEX;i++){
+                 for(int j=0;j<BOARDSIZEY;j++){
+                     if(white_fours[i][j]>0){
+                         return Coordinate(i,j);
+                     }
+                 }
+                 }
+             }else{
+                 return Coordinate(-1,-1);
+             }
+         }else if(num_of_white_half_fours>0){
+             canWin = true;
+             if(provide_move){
+                 for(int i=0;i<BOARDSIZEX;i++){
+                 for(int j=0;j<BOARDSIZEY;j++){
+                     if(white_half_fours[i][j]>0){
+                         return Coordinate(i,j);
+                     }
+                 }
+                 }
+             }else{
+                 return Coordinate(-1,-1);
+             }
+         }else if(num_of_black_wins>0){
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_white_active_threes*num_of_black_half_fours>0){
+             bool canDefend = true;
+             for(int i=0;i<BOARDSIZEX;i++){
+             for(int j=0;j<BOARDSIZEY;j++){
+                 if(black_half_fours[i][j]>0){
+                     TryMove(Coordinate(i,j));
+                     RespondVCT(canDefend, max_depth);
+                     CancelTry();
+                     if(!canDefend){
+                         canWin = true;
+                         return Coordinate(i,j);
+                     }
+                 }
+             }
+             }
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_white_active_threes-num_of_black_half_fours<0){
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_white_active_threes-num_of_black_half_fours>0){
+             canWin = true;
+             if(provide_move){
+                 for(int i=0;i<BOARDSIZEX;i++){
+                 for(int j=0;j<BOARDSIZEY;j++){
+                     if(white_active_threes[i][j]>0){
+                         return Coordinate(i,j);
+                     }
+                 }
+                 }
+             }else{
+                 return Coordinate(-1,-1);
+             }
+         }else if(num_of_white_half_threes>0){
+             bool canDefend = true;
+             for(int i=0;i<15;i++){
+             for(int j=0;j<15;j++){
+                 if(white_half_threes[i][j]>0){
+                     Coordinate cur_move = Coordinate(i,j);
+                     assert(TryMove(cur_move)=="continuing");
+                     RespondVCT(canDefend, max_depth);
+                     CancelTry();
+                     if(!canDefend){
+                         canWin = true;
+                         return cur_move;
+                     }
+                 }
+             }
+             }
+         }
+         if(num_of_black_active_threes>0){
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_white_active_twos>0){
+             bool canDefend = true;
+             for(int i=0;i<15;i++){
+             for(int j=0;j<15;j++){
+                 if(white_active_twos[i][j]>0){
+                     Coordinate cur_move = Coordinate(i,j);
+                     assert(TryMove(cur_move)=="continuing");
+                     RespondVCT(canDefend, max_depth);
+                     CancelTry();
+                     if(!canDefend){
+                         canWin = true;
+                         return cur_move;
+                     }
+                 }
+             }
+             }
+         }else{
+             canWin = false;
+             return Coordinate(-1,-1);
+         }
+     }
+}
+
+void GameAI::RespondVCT(bool &canDefend, int max_depth){
+    /*
+     * Implementation note:
+     * Assume it has no five, four, or half four.
+     * The strategy for defending could be either
+     * to block or to produce half four (active three
+     * is a bit too slow)
+     */
+     if(whose_turn_repre==BLACK_R){
+         canDefend = false;
+         bool canWin = true;
+         if(num_of_white_wins>0){
+             return;
+         }else if(num_of_white_half_fours>0){
+         //if opponent has half fours, then effective response must be to block it, if any
+             for(int i=0;i<15;i++){
+             for(int j=0;j<15;j++){
+                 if(white_half_fours[i][j]>0){
+                     TryMove(Coordinate(i,j));
+                     CalculateVCT(canWin, max_depth);
+                     CancelTry();
+                     if(!canWin){
+                     //if there is a way when he cannot win, then you can defend successfully!
+                         canDefend = true;
+                         return;
+                     }
+                 }
+             }
+             }
+             canDefend = false;
+             return;
+         }else if(num_of_white_active_threes>0){
+         //if opponent has active threes, then effective response could
+         //be to block it or to produce half four
+             for(int i=0;i<15;i++){
+             for(int j=0;j<15;j++){
+                 if(black_active_threes[i][j]|black_half_threes[i][j]|white_active_threes[i][j]>0){
+                 //to retaliate or to block
+                     TryMove(Coordinate(i,j));
+                     CalculateVCT(canWin, max_depth);
+                     CancelTry();
+                     if(!canWin){
+                         canDefend = true;
+                         return;
+                     }
+                 }
+             }
+             }
+             canDefend = false;
+             return;
+         }else{
+             //This case is due to the imcompleteness of the assessment of VCT
+             canDefend = true;
+             return;
+         }
+     }
+     if(whose_turn_repre==WHITE_R){
+         canDefend = false;
+         bool canWin = true;
+         if(num_of_black_wins>0){
+             return;
+         }else if(num_of_black_half_fours>0){
+             for(int i=0;i<15;i++){
+             for(int j=0;j<15;j++){
+                 if(black_half_fours[i][j]>0){
+                     TryMove(Coordinate(i,j));
+                     CalculateVCT(canWin, max_depth);
+                     CancelTry();
+                     if(!canWin){
+                         canDefend = true;
+                         return;
+                     }
+                 }
+             }
+             }
+             canDefend = false;
+             return;
+         }else if(num_of_black_active_threes>0){
+             for(int i=0;i<15;i++){
+             for(int j=0;j<15;j++){
+                 if(white_active_threes[i][j]|white_half_threes[i][j]|black_active_threes[i][j]>0){
+                     TryMove(Coordinate(i,j));
+                     CalculateVCT(canWin, max_depth);
+                     CancelTry();
+                     if(!canWin){
+                         canDefend = true;
+                         return;
+                     }
+                 }
+             }
+             }
+             canDefend = false;
+             return;
+         }else{
+             canDefend = true;
+             return;
+         }
+     }
+}
+
 
 void GameAI::InitHash(){
     vector<string> colors = {"white", "black"};
@@ -322,585 +816,63 @@ void GameAI::UpdateHash(Stone last_move){
 }
 
 void GameAI::RedoHash(){
-    //actually identical with UpdateHash due to property of xor.
     Stone last_move = get_last_move();
     UpdateHash(last_move);
 }
-
-void GameAI::RankOptions(queue<Coordinate> &options){
-    set_five_value();
-    set_site_value();
-    int len = BOARDSIZEX*BOARDSIZEY;
-    vector<int> keys(len);
-    vector<Coordinate> values(len);
-    for(int i=0;i<BOARDSIZEX;i++){
-    for(int j=0;j<BOARDSIZEY;j++){
-        keys[i*BOARDSIZEX+j] = siteValue[i][j];
-        values[i*BOARDSIZEX+j] = Coordinate(i,j);
-    }
-    }
-    sort(keys, values, 0, len);
-    int n = 0;
-    for(int i=len;i>0;i--){
-        if(n>=10){
-            break;
-        }
-        if(CheckRule(values[i])!="illegal"){
-            options.push(values[i]);
-            n += 1;
-        }
-    }
+bool GameAI::isMaxNode(){
+    int relative_depth = get_relative_depth();
+    return relative_depth%2==0;
 }
+
+int GameAI::get_relative_depth(){
+    return get_steps()-game_depth;
+}
+
+string GameAI::toString(){
+    string str;
+    str += string("--------------round") + to_string(round) + " " + (isFirstPlayer(whose_turn)?"first hand":"second hand") + "-------------\n";
+    str += string("FIRST_PLAYER ") + ((FIRST_PLAYER==HUMAN)?"HUMAN":"COMPUTER") + "\n";
+    str += string("SECOND_PLAYER ") + ((SECOND_PLAYER==HUMAN)?"HUMAN":"COMPUTER") + "\n";
+    str += string("whose_turn ") + whose_turn + "\n";
+    str += "whose_turn_repre: " + to_string(whose_turn_repre) + "\n";
+    str += "opponent_repre: " + to_string(opponent_repre) + "\n";
+    str += string("current player type ") + ((get_cur_player()==HUMAN)?"HUMAN":"COMPUTER") + "\n";
+    str += string("terminated ") + (isTerminated()?"true":"false") + "\n";
+    str += string("winner ") + winner + "\n";
+    str += string("num_of_empty_places ") + to_string(get_num_of_empty_places()) + "\n";
+    str += "current steps: " + to_string(get_steps()) + "\n";
+    str += string("MAX_DEPTH ") + to_string(MAX_DEPTH) + "\n";
+    str += string("my_color ") + my_color + "\n";
+    str += string("game_depth ") + to_string(game_depth) + "\n";
+    str += "cur_hash ";
+    for(int i=0;i<HASH_SIZE;i++){
+        str += to_string(cur_hash[i]);
+    }
+    str += "\n";
+    return str;
+}
+
+vector<Stone> GameAI::get_fives(){
+    vector<Stone> stones_in_five;
+    for(int i=0;i<15;i++){
+        for(int j=0;j<15;j++){
+            if(black_fives[i][j]){
+                stones_in_five.push_back(Stone(i,j,"black"));
+            }else if(white_fives[i][j]){
+                stones_in_five.push_back(Stone(i,j,"white"));
+            }
+        }
+    }
+    return stones_in_five;
+}
+
 
 /*
  * Implementation Note:
- * The state is estimated based on color. The
- * larger the color, the more advantage black
- * has.
+ * chart uses sum to distinguish each cases.
+ * for example, 4 suggests one black stone in the
+ * direction, 5 means one white stone in the direction.
  */
-
-int GameAI::EstimateState(){
-    if(state_values.find(cur_hash)!=state_values.end()){
-        return state_values[cur_hash];
-    }else{
-        int static_score = 0;
-        if(whose_turn=="black"){
-            /*
-             * check for win (might not be necessary if VCT is present)
-             * priority:
-             * my five or four
-             * your five or four
-             * my double
-             * your half four
-             * my double three
-             */
-            if(num_of_black_wins||num_of_black_half_fours){
-            //existence of four or half four
-                state_values[cur_hash] = LARGEST_NUMBER;
-                return LARGEST_NUMBER;
-            }else if(num_of_white_wins){
-            //existence of opponent's four
-                state_values[cur_hash] = -LARGEST_NUMBER;
-                return -LARGEST_NUMBER;
-            }else if(num_of_black_active_threes){
-                state_values[cur_hash] = LARGEST_NUMBER;
-                return LARGEST_NUMBER;
-            }else{
-
-              bool canWin = false;
-              CalculateVCT(canWin, INTREE_VCT_DEPTH);
-              if(canWin){
-                  state_values[cur_hash] = LARGEST_NUMBER;
-                  return LARGEST_NUMBER;
-              }
-
-                /*
-                for(int i=0;i<15;i++){
-                    for(int j=0;j<15;j++){
-                        if(black_half_threes[i][j]>1){
-                            state_values[cur_hash] = LARGEST_NUMBER;
-                            return LARGEST_NUMBER;
-                        }else if(black_half_threes[i][j]&&black_active_twos[i][j]){
-                            state_values[cur_hash] = LARGEST_NUMBER;
-                            return LARGEST_NUMBER;
-                        }
-                    }
-                }
-                if(num_of_white_half_fours==0){
-                    for(int i=0;i<15;i++){
-                        for(int j=0;i<15;j++){
-                            if(black_active_twos[i][j]>1){
-                                state_values[cur_hash] = LARGEST_NUMBER;
-                                return LARGEST_NUMBER;
-                            }
-                        }
-                    }
-                }
-                */
-                //score counting
-                static_score += SCORE_FOR_MY_HALF_THREE*num_of_black_half_threes;
-                static_score += SCORE_FOR_MY_ACTIVE_TWO*num_of_black_active_twos;
-                static_score += SCORE_FOR_YOUR_HALF_FOUR*num_of_white_half_fours;
-                static_score += SCORE_FOR_YOUR_ACTIVE_THREE*num_of_white_active_threes;
-                static_score += SCORE_FOR_YOUR_HALF_THREE*num_of_white_half_threes;
-                static_score += SCORE_FOR_YOUR_ACTIVE_TWO*num_of_white_active_twos;
-                state_values[cur_hash] = static_score;
-                return static_score;
-            }
-        }
-        if(whose_turn=="white"){
-            /*
-             * check for win (might not be necessary if VCT is present)
-             * priority:
-             * my five or four
-             * your five or four
-             * my double
-             * your half four
-             * my double three
-             */
-            if(num_of_white_wins||num_of_white_half_fours){
-            //existence of four or half four
-                state_values[cur_hash] = -LARGEST_NUMBER;
-                return -LARGEST_NUMBER;
-            }else if(num_of_black_wins){
-            //existence of opponent's four
-                state_values[cur_hash] = LARGEST_NUMBER;
-                return LARGEST_NUMBER;
-            }else if(num_of_white_active_threes){
-                state_values[cur_hash] = -LARGEST_NUMBER;
-                return -LARGEST_NUMBER;
-            }else{
-
-                bool canWin=false;
-                CalculateVCT(canWin, INTREE_VCT_DEPTH);
-                if(canWin){
-                    state_values[cur_hash] = -LARGEST_NUMBER;
-                    return -LARGEST_NUMBER;
-                }
-
-                /*
-                for(int i=0;i<15;i++){
-                    for(int j=0;j<15;j++){
-                        if(white_half_threes[i][j]>1){
-                            state_values[cur_hash] = -LARGEST_NUMBER;
-                            return -LARGEST_NUMBER;
-                        }else if(white_half_threes[i][j]&&white_active_twos[i][j]){
-                            state_values[cur_hash] = -LARGEST_NUMBER;
-                            return -LARGEST_NUMBER;
-                        }
-                    }
-                }
-                if(num_of_black_half_fours==0){
-                    for(int i=0;i<15;i++){
-                        for(int j=0;i<15;j++){
-                            if(white_active_twos[i][j]>1){
-                                state_values[cur_hash] = -LARGEST_NUMBER;
-                                return -LARGEST_NUMBER;
-                            }
-                        }
-                    }
-                }
-                */
-                //score counting
-                static_score -= SCORE_FOR_MY_HALF_THREE*num_of_white_half_threes;
-                static_score -= SCORE_FOR_MY_ACTIVE_TWO*num_of_white_active_twos;
-                static_score -= SCORE_FOR_YOUR_HALF_FOUR*num_of_black_half_fours;
-                static_score -= SCORE_FOR_YOUR_ACTIVE_THREE*num_of_black_active_threes;
-                static_score -= SCORE_FOR_YOUR_HALF_THREE*num_of_black_half_threes;
-                static_score -= SCORE_FOR_YOUR_ACTIVE_TWO*num_of_black_active_twos;
-                state_values[cur_hash] = static_score;
-                return static_score;
-            }
-        }
-    }
-}
-
-//watch out for change of board
-void GameAI::FindMoves(stack<Coordinate> & moves, string color,
-                       bool (*finder)(const vector<vector<int>>&, string, Coordinate)){
-    for(int i=0;i<BOARDSIZEX;i++){
-        for(int j=0;j<BOARDSIZEY;j++){
-            if(current_board[i][j]==EMPTY_R){
-                current_board[i][j] = REPRESENTATION.at(color);
-                if(finder(current_board, color, Coordinate(i,j))){
-                    moves.push(Coordinate(i,j));
-                }
-                current_board[i][j] = EMPTY_R;
-            }
-        }
-    }
-}
-void GameAI::FindKillingMoves(stack<Coordinate> &killing_moves, string color){
-    FindMoves(killing_moves, color, &have_five_at);
-    FindMoves(killing_moves, color, &have_active_four_at);
-}
-void GameAI::FindHalfFourMoves(stack<Coordinate> &half_four_moves, string color){
-    FindMoves(half_four_moves, color, &have_half_four_at);
-}
-void GameAI::FindActiveThreeMoves(stack<Coordinate> &active_three_moves, string color){
-    FindMoves(active_three_moves, color, &have_active_three_at);
-}
-
-Coordinate GameAI::CalculateVCT(bool &canWin, int max_depth, bool provide_move){
-    /*
-     * Implementation note:
-     * Assume that opponents have no five or four
-     * Assume that current player has no five as
-     * well.
-     * They are guarenteed by the implementation
-     * of EstimateState.
-     *
-     */
-     //cout<<"calculating vct..."<<endl;
-     //ShowBoard(current_board);
-     if(get_relative_depth()>max_depth){
-         ShowBoard(current_board);
-         canWin = false;
-         return Coordinate(-1,-1);
-     }
-     if(whose_turn_repre==BLACK_R){
-         if(num_of_black_wins>0){
-             canWin = true;
-             VariationRecorder1();
-             if(provide_move){
-             //if there is request for moves
-                 for(int i=0;i<BOARDSIZEX;i++){
-                 for(int j=0;j<BOARDSIZEY;j++){
-                     if(black_fours[i][j]>0){
-                         return Coordinate(i,j);
-                     }
-                 }
-                 }
-             }else{
-                 return Coordinate(-1,-1);
-             }
-         }else if(num_of_black_half_fours>0){
-             canWin = true;
-             VariationRecorder1();
-             if(provide_move){
-                 for(int i=0;i<BOARDSIZEX;i++){
-                 for(int j=0;j<BOARDSIZEY;j++){
-                     if(black_half_fours[i][j]>0){
-                         return Coordinate(i,j);
-                     }
-                 }
-                 }
-             }else{
-                 return Coordinate(-1,-1);
-             }
-         }else if(num_of_white_wins){
-         //give up if opponent has four
-             canWin = false;
-             return Coordinate(-1,-1);
-         }else if(num_of_black_active_threes*num_of_white_half_fours>0){
-             bool canDefend = true;
-             for(int i=0;i<BOARDSIZEX;i++){
-             for(int j=0;j<BOARDSIZEY;j++){
-                 if(white_half_fours[i][j]>0){
-                     TryMove(Coordinate(i,j));
-                     RespondVCT(canDefend, max_depth);
-                     if(!canDefend){
-                         VariationRecorder1();
-                     }else{
-                         VariationRecorder2();
-                     }
-                     CancelTry();
-                     if(!canDefend){
-                         canWin = true;
-                         return Coordinate(i,j);
-                     }
-                 }
-             }
-             }
-             canWin = false;
-             return Coordinate(-1,-1);
-         }else if(num_of_black_active_threes-num_of_white_half_fours<0){
-             canWin = false;
-             return Coordinate(-1,-1);
-         }else if(num_of_black_active_threes-num_of_white_half_fours>0){
-             canWin = true;
-             VariationRecorder1();
-             if(provide_move){
-                 for(int i=0;i<BOARDSIZEX;i++){
-                 for(int j=0;j<BOARDSIZEY;j++){
-                     if(black_active_threes[i][j]>0){
-                         return Coordinate(i,j);
-                     }
-                 }
-                 }
-             }else{
-                 return Coordinate(-1,-1);
-             }
-         }
-
-         //try to generate half four
-         if(num_of_black_half_threes>0){
-             bool canDefend = true;
-             for(int i=0;i<15;i++){
-             for(int j=0;j<15;j++){
-                 if(black_half_threes[i][j]>0){
-                     Coordinate cur_move = Coordinate(i,j);
-                     assert(TryMove(cur_move)=="continuing");
-                     RespondVCT(canDefend, max_depth);
-                     if(!canDefend){
-                         VariationRecorder1();
-                     }else{
-                         VariationRecorder2();
-                     }
-                     CancelTry();
-                     if(!canDefend){
-                         canWin = true;
-                         return cur_move;
-                     }
-                 }
-             }
-             }
-         }
-         //try to generate active three
-         if(num_of_white_active_threes){
-         //prunning when opponent already has active three while you
-         //are just going to produce a three
-         //when canWin==false, no need to assign vic_move
-             canWin = false;
-             return Coordinate(-1,-1);
-         }else if(num_of_black_active_twos>0){
-             bool canDefend = true;
-             for(int i=0;i<15;i++){
-             for(int j=0;j<15;j++){
-                 if(black_active_twos[i][j]>0){
-                     Coordinate cur_move = Coordinate(i,j);
-                     assert(TryMove(cur_move)=="continuing");
-                     RespondVCT(canDefend, max_depth);
-                     if(!canDefend){
-                         VariationRecorder1();
-                     }else{
-                         VariationRecorder2();
-                     }
-                     CancelTry();
-                     if(!canDefend){
-                         canWin = true;
-                         return cur_move;
-                     }
-                 }
-             }
-             }
-         }else{
-             canWin = false;
-             return Coordinate(-1,-1);
-         }
-     }else{
-     //this part is reverse of last part
-         if(num_of_white_wins>0){
-             canWin = true;
-             VariationRecorder1();
-             if(provide_move){
-             //if there is request for moves
-                 for(int i=0;i<BOARDSIZEX;i++){
-                 for(int j=0;j<BOARDSIZEY;j++){
-                     if(white_fours[i][j]>0){
-                         return Coordinate(i,j);
-                     }
-                 }
-                 }
-             }else{
-                 return Coordinate(-1,-1);
-             }
-         }else if(num_of_white_half_fours>0){
-             canWin = true;
-             VariationRecorder1();
-             if(provide_move){
-                 for(int i=0;i<BOARDSIZEX;i++){
-                 for(int j=0;j<BOARDSIZEY;j++){
-                     if(white_half_fours[i][j]>0){
-                         return Coordinate(i,j);
-                     }
-                 }
-                 }
-             }else{
-                 return Coordinate(-1,-1);
-             }
-         }else if(num_of_black_wins>0){
-             canWin = false;
-             return Coordinate(-1,-1);
-         }else if(num_of_white_active_threes*num_of_black_half_fours>0){
-             bool canDefend = true;
-             for(int i=0;i<BOARDSIZEX;i++){
-             for(int j=0;j<BOARDSIZEY;j++){
-                 if(black_half_fours[i][j]>0){
-                     TryMove(Coordinate(i,j));
-                     RespondVCT(canDefend, max_depth);
-                     if(!canDefend){
-                         VariationRecorder1();
-                     }else{
-                         VariationRecorder2();
-                     }
-                     CancelTry();
-                     if(!canDefend){
-                         canWin = true;
-                         return Coordinate(i,j);
-                     }
-                 }
-             }
-             }
-             canWin = false;
-             return Coordinate(-1,-1);
-         }else if(num_of_white_active_threes-num_of_black_half_fours<0){
-             canWin = false;
-             return Coordinate(-1,-1);
-         }else if(num_of_white_active_threes-num_of_black_half_fours>0){
-             canWin = true;
-             VariationRecorder1();
-             if(provide_move){
-                 for(int i=0;i<BOARDSIZEX;i++){
-                 for(int j=0;j<BOARDSIZEY;j++){
-                     if(white_active_threes[i][j]>0){
-                         return Coordinate(i,j);
-                     }
-                 }
-                 }
-             }else{
-                 return Coordinate(-1,-1);
-             }
-         }
-
-         if(num_of_white_half_threes>0){
-             bool canDefend = true;
-             for(int i=0;i<15;i++){
-             for(int j=0;j<15;j++){
-                 if(white_half_threes[i][j]>0){
-                     Coordinate cur_move = Coordinate(i,j);
-                     assert(TryMove(cur_move)=="continuing");
-                     RespondVCT(canDefend, max_depth);
-                     if(!canDefend){
-                         VariationRecorder1();
-                     }else{
-                         VariationRecorder2();
-                     }
-                     CancelTry();
-                     if(!canDefend){
-                         canWin = true;
-                         return cur_move;
-                     }
-                 }
-             }
-             }
-         }
-         if(num_of_black_active_threes){
-             canWin = false;
-             return Coordinate(-1,-1);
-         }else if(num_of_white_active_twos>0){
-             bool canDefend = true;
-             for(int i=0;i<15;i++){
-             for(int j=0;j<15;j++){
-                 if(white_active_twos[i][j]>0){
-                     Coordinate cur_move = Coordinate(i,j);
-                     assert(TryMove(cur_move)=="continuing");
-                     RespondVCT(canDefend, max_depth);
-                     if(!canDefend){
-                         VariationRecorder1();
-                     }else{
-                         VariationRecorder2();
-                     }
-                     CancelTry();
-                     if(!canDefend){
-                         canWin = true;
-                         return cur_move;
-                     }
-                 }
-             }
-             }    
-         }else{
-             canWin = false;
-             return Coordinate(-1,-1);
-         }
-     }
-}
-
-void GameAI::RespondVCT(bool &canDefend, int max_depth){
-    /*
-     * Implementation note:
-     * Assume it has no five, four, or half four.
-     * The strategy for defending could be either
-     * to block or to produce half four (active three
-     * is a bit too slow)
-     */
-     if(whose_turn_repre==BLACK_R){
-         canDefend = false;
-         bool canWin = true;
-         if(num_of_white_wins>0){
-             return;
-         }else if(num_of_white_half_fours>0){
-         //if opponent has half fours, then effective response must be to block it, if any
-             for(int i=0;i<15;i++){
-             for(int j=0;j<15;j++){
-                 if(white_half_fours[i][j]>0){
-                     VariationRecorder2();
-                     TryMove(Coordinate(i,j));
-                     CalculateVCT(canWin, max_depth);
-                     CancelTry();
-                     if(!canWin){
-                     //if there is a way when he cannot win, then you can defend successfully!
-                         canDefend = true;
-                         return;
-                     }
-                 }
-             }
-             }
-             canDefend = false;
-             return;
-         }else if(num_of_white_active_threes>0){
-         //if opponent has active threes, then effective response could
-         //be to block it or to produce half four
-             for(int i=0;i<15;i++){
-             for(int j=0;j<15;j++){
-                 if(black_active_threes[i][j]|black_half_threes[i][j]|white_active_threes[i][j]>0){
-                 //to retaliate or to block
-                     VariationRecorder2();
-                     TryMove(Coordinate(i,j));
-                     CalculateVCT(canWin, max_depth);
-                     CancelTry();
-                     if(!canWin){
-                         canDefend = true;
-                         return;
-                     }
-                 }
-             }
-             }
-             canDefend = false;
-             return;
-         }else{
-             //This case is due to the imcompleteness of the assessment of VCT
-             canDefend = true;
-             return;
-         }
-     }
-     if(whose_turn_repre==WHITE_R){
-         canDefend = false;
-         bool canWin = true;
-         if(num_of_black_wins>0){
-             return;
-         }else if(num_of_black_half_fours>0){
-             for(int i=0;i<15;i++){
-             for(int j=0;j<15;j++){
-                 if(black_half_fours[i][j]>0){
-                     VariationRecorder2();
-                     TryMove(Coordinate(i,j));
-                     CalculateVCT(canWin, max_depth);
-                     CancelTry();
-                     if(!canWin){
-                         canDefend = true;
-                         return;
-                     }
-                 }
-             }
-             }
-             canDefend = false;
-             return;
-         }else if(num_of_black_active_threes>0){
-             for(int i=0;i<15;i++){
-             for(int j=0;j<15;j++){
-                 if(white_active_threes[i][j]|white_half_threes[i][j]|black_active_threes[i][j]>0){
-                     VariationRecorder2();
-                     TryMove(Coordinate(i,j));
-                     CalculateVCT(canWin, max_depth);
-                     CancelTry();
-                     if(!canWin){
-                         canDefend = true;
-                         return;
-                     }
-                 }
-             }
-             }
-             canDefend = false;
-             return;
-         }else{
-             canDefend = true;
-             return;
-         }
-     }
-}
-
-
 int GameAI::chart(int grade){
     int temp = 0;
     if(whose_turn_repre==BLACK_R){
@@ -934,6 +906,11 @@ int GameAI::chart(int grade){
     return temp;
 }
 
+/*
+ * Implementation Note:
+ * By simply taking the sum, many cases can be distinguished.
+ * Because 4 and 5 are relative prime and have large lcm.
+ */
 void GameAI::set_five_value(){
     for(int i=0;i<BOARDSIZEX;i++){
         for(int j=0;j<BOARDSIZEY;j++){
@@ -968,6 +945,10 @@ void GameAI::set_five_value(){
         }
     }
 }
+
+/*site value at a certain point is obtained by taking the
+ *sum of scores of five consecutive points passing through the point.
+ */
 void GameAI::set_site_value()
 {
     for(int i=0;i<BOARDSIZEX;i++){
@@ -989,6 +970,7 @@ void GameAI::set_site_value()
     }
 }
 
+//This function implements merge sort
 void GameAI::sort(vector<int> &keys, vector<Coordinate> &values, int h, int t){
     int n = t-h;
     if(n<=1){
@@ -1046,65 +1028,20 @@ void GameAI::apply_xor(vector<int> &result, const vector<int> &bitstr1, const ve
     }
 }
 
-void GameAI::PrintVariation(){
-    int cur_steps = get_steps();
-    for(int n=cur_steps;n>game_depth;n--){
-        Stone move = history_moves[n];
-        cout<<move.x<<","<<move.y<<" "<<move.color<<endl;
-    }
-}
 
-void GameAI::VariationRecorder1(){
-
-    for(int k=game_depth;k<get_steps();k++){
-        main_variation.push_back(history_moves[k]);
-    }
-}
-
-void GameAI::VariationRecorder2(){
-    main_variation.clear();
-}
-
-/*
-void GameAI::ReverseBoard(){
-    for(int i=0;i<BOARDSIZEX;i++){
-        for(int j=0;j<BOARDSIZEY;j++){
-            current_board[i][j] = -current_board[i][j];
-        }
-    }
-}
-*/
-
-string GameAI::toString(){
-    string str;
-    str += string("--------------round") + to_string(round) + " " + (isFirstPlayer(whose_turn)?"first hand":"second hand") + "-------------\n";
-    str += "-------------game info----------------\n";
-    str += string("FIRST_PLAYER ") + ((FIRST_PLAYER==HUMAN)?"HUMAN":"COMPUTER") + "\n";
-    str += string("SECOND_PLAYER ") + ((SECOND_PLAYER==HUMAN)?"HUMAN":"COMPUTER") + "\n";
-    str += string("whose_turn ") + whose_turn + "\n";
-    str += "whose_turn_repre: " + to_string(whose_turn_repre) + "\n";
-    str += "opponent_repre: " + to_string(opponent_repre) + "\n";
-    str += string("current player type ") + ((get_cur_player()==HUMAN)?"HUMAN":"COMPUTER") + "\n";
-    str += string("terminated ") + (isTerminated()?"true":"false") + "\n";
-    str += string("winner ") + winner + "\n";
-    str += string("num_of_empty_places ") + to_string(get_num_of_empty_places()) + "\n";
-    str += "current steps: " + to_string(get_steps()) + "\n";
-    str += "-------------ai info------------------\n";
-    str += string("MAX_DEPTH ") + to_string(MAX_DEPTH) + "\n";
-    str += string("my_color ") + my_color + "\n";
-    str += string("game_depth ") + to_string(game_depth) + "\n";
-    str += "cur_hash ";
-    for(int i=0;i<HASH_SIZE;i++){
-        str += to_string(cur_hash[i]);
-    }
-    str += "\n";
-    return str;
-}
 
 ostream & operator << (ostream & os, GameAI & ai){
     return os<<ai.toString();
 }
 
+/*
+ * Implementation Note:
+ * direc "x" means fix y vary x, index range from 0 to 14;
+ * "y" fix x vary y, index range from 0 to 14
+ * "d" means diagonol, index range from -10 to 10, start from [index][0] or [0][-index], increase by 1,1
+ * "a" means antidiagonol, index range from -10 to 10, start from [14+index][0] or [14][-index], increase by -1,1
+ * vectors of whose_turn's color and vectors of opponent's color are both saved in board_vecs
+ */
 struct GameAI::TwoBitStrings GameAI::GetVector(int index, string direc){
     int black_vec = 0;
     int white_vec = 0;
@@ -1227,6 +1164,11 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
           throw "typo";
       }
 
+      /* Usually both old vectors and new vectors are needed to
+       * find the CHANGE in number and distribution of shapes.
+       * When realculate is true, old vectors are not needed and
+       * are thus set to 0.
+       */
       int black_vec = black_and_white_vecs.black_vec;
       int white_vec = black_and_white_vecs.white_vec;
       int old_black_vec = black_vec;
@@ -1247,15 +1189,28 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
       }
 
       /*
+       * The following section hard code the representations of
+       * each shape appearing in gomoku. A representation is a
+       * pair of integer value whose binary form takes 1 where
+       * there is a stone, and 0 where there is none. Only
+       * representations for black shapes are written, because
+       * representation for white shapes is simply a switch of
+       * order. Center means the point where a shape can upgrade
+       * to a shape of higher score.
+       */
+      /*
        * Type: black five
        * Shape: XXXXX
        * Length: 5
        * Representation: 31, 0
        */
       int centers[10];
-      int num_of_centers = 0;
+      for(int i=0;i<5;i++){
+          centers[i] = i;
+      }
+      int num_of_centers = 5;
       FitTheTemplate(black_vec, white_vec, old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 5, 31, 0,
-                 centers, num_of_centers, num_of_black_wins, num_of_white_wins, NULL, NULL);
+                 centers, num_of_centers, num_of_black_wins, num_of_white_wins, black_fives, white_fives);
 
       /*
        * Type: black four
@@ -1555,13 +1510,6 @@ void GameAI::FitTheTemplate(int black_vec, int white_vec, int old_black_vec, int
         fitsOld = (((old_black_vec>>n)&((1<<temp_size)-1))==temp1)&&
                   (((old_white_vec>>n)&((1<<temp_size)-1))==temp2);
         if(fitsNew&&!fitsOld){
-            //cout<<"adding black"<<endl;
-            /*
-            cout<<"checking for black shape..."<<endl;
-            cout<<"temp1 "<<temp1<<" temp2 "<<temp2<<endl;
-            cout<<"cur_black_vec "<<cur_black_vec<<" cur_white_vec "<<cur_white_vec<<endl;
-            cout<<endl;
-            */
             for(int i=0; i<num_of_centers; i++){
                 center_x = x + centers[i]*dx;
                 center_y = y + centers[i]*dy;
@@ -1569,7 +1517,6 @@ void GameAI::FitTheTemplate(int black_vec, int white_vec, int old_black_vec, int
             }
             black_count += 1;
         }else if(!fitsNew&&fitsOld){
-            //cout<<"deleting black"<<endl;
             for(int i=0;i<num_of_centers;i++){
                 center_x = x + centers[i]*dx;
                 center_y = y + centers[i]*dy;
@@ -1580,22 +1527,15 @@ void GameAI::FitTheTemplate(int black_vec, int white_vec, int old_black_vec, int
         x += dx;
         y += dy;
     }
+    /*-------------------counter part for white ones----------------------*/
     x = init_x;
     y = init_y;
     for(int n=0; n<iters; n++){
-        //reverse of previous section
         fitsNew = (((white_vec>>n)&((1<<temp_size)-1))==temp1)&&
                   (((black_vec>>n)&((1<<temp_size)-1))==temp2);
         fitsOld = (((old_white_vec>>n)&((1<<temp_size)-1))==temp1)&&
                   (((old_black_vec>>n)&((1<<temp_size)-1))==temp2);
         if(fitsNew&&(!fitsOld)){
-            /*
-            cout<<"checking for black shape..."<<endl;
-            cout<<"temp1 "<<temp1<<" temp2 "<<temp2<<endl;
-            cout<<"cur_black_vec "<<cur_black_vec<<" cur_white_vec "<<cur_white_vec<<endl;
-            cout<<endl;
-            */
-            //cout<<"adding white"<<endl;
             for(int i=0; i<num_of_centers; i++){
                 center_x = x + centers[i]*dx;
                 center_y = y + centers[i]*dy;
@@ -1603,7 +1543,6 @@ void GameAI::FitTheTemplate(int black_vec, int white_vec, int old_black_vec, int
             }
             white_count += 1;
         }else if((!fitsNew)&&fitsOld){
-            //cout<<"deleting white"<<endl;
             for(int i=0;i<num_of_centers;i++){
                 center_x = x + centers[i]*dx;
                 center_y = y + centers[i]*dy;
@@ -1619,10 +1558,14 @@ void GameAI::FitTheTemplate(int black_vec, int white_vec, int old_black_vec, int
 void GameAI::InitializeStateEstimation(){
     for(int i=0;i<15;i++){
         for(int j=0;j<15;j++){
+            black_fives[i][j] = 0;
+            black_fours[i][j] = 0;
             black_half_fours[i][j] = 0;
             black_active_threes[i][j] = 0;
             black_half_threes[i][j] = 0;
             black_active_twos[i][j] = 0;
+            white_fives[i][j] = 0;
+            white_fours[i][j] = 0;
             white_half_fours[i][j] = 0;
             white_active_threes[i][j] = 0;
             white_half_threes[i][j] = 0;
@@ -1642,22 +1585,14 @@ void GameAI::InitializeStateEstimation(){
     string direcs[4] = {"x","y","d","a"};
     for(int k = 0; k<2; k++){
         for(int index=0; index<15; index++){
-            //cout<<"index: "<<index<<" direction "<<direcs[k]<<endl;
-            //struct TwoBitStrings vecs = GetVector(index, direcs[k]);
-            //cout<<"black vec: "<<vecs.black_vec<<" white vec: "<<vecs.white_vec<<endl;
             FitTemplates(GetVector(index, direcs[k]), 15, index, direcs[k]);
         }
     }
     for(int k = 2; k<4; k++){
         for(int index=-10; index<11; index++){
-            //cout<<"index: "<<index<<" direction "<<direcs[k]<<endl;
-            //struct TwoBitStrings vecs = GetVector(index, direcs[k]);
-            //cout<<"black vec: "<<vecs.black_vec<<" white vec: "<<vecs.white_vec<<endl;
             FitTemplates(GetVector(index, direcs[k]), 15-abs(index), index, direcs[k]);
         }
     }
-    //ShowBoard(black_active_twos);
-    //ShowBoard(white_active_twos);
-    //cout<<num_of_black_active_twos<<endl;
-    //cout<<num_of_white_active_twos<<endl;
 }
+
+

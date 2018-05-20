@@ -11,6 +11,7 @@
 #include "stone.h"
 #include "gameai.h"
 #include <time.h>
+#include "shapefinder.h"
 using namespace std;
 
 
@@ -52,12 +53,19 @@ void test_game_model(){
     move_and_display(myModel,0,3);
     move_and_display(myModel,1,3);
     move_and_display(myModel,0,4);
+    GameAI myAI(myModel, "white");
+    vector<Stone> stones_in_five = myAI.get_fives();
+    for(Stone& stone:stones_in_five){
+        cout<<stone<<endl;
+    }
+    /*
     move_and_display(myModel,1,4);
     myModel.CancelLastMove();
     cout<<myModel<<endl;
     myModel.CancelLastMove();
     cout<<myModel<<endl;
     showBoard(myModel);
+    */
 }
 
 void test_ai_properties(){
