@@ -185,7 +185,7 @@ string GameTreeNode::toString(){
 }
 
 void GameTreeNode::set_xy(int x, int y){
-    if((x<0)||(x>=BOARDSIZEX)||(y<0)||(y>=BOARDSIZEY)){
+    if((x<0)||(x>=BOARDSIZE.x)||(y<0)||(y>=BOARDSIZE.y)){
         cerr<<"invalid xy when initializing a node"<<endl;
         throw to_string(x)+","+to_string(y);
     }else{

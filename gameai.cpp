@@ -11,6 +11,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <algorithm>
 using namespace std;
 
 
@@ -57,9 +58,17 @@ void GameAI::Update(GameModel &game){
             current_board2[i][j] = current_board[i][j]*((current_board[i][j]>0)?4:5);//black, empty, white, 4, 0, 5
         }
     }
+    history_moves.clear();
     for(int i=0; i<game.get_steps(); i++){
         history_moves.push_back(game.get_history_move(i));
         UpdateHash(history_moves[i]);
+        /*
+        for(int x=-AVAILABLE_NEIGHBORHOOD;x<=AVAILABLE_NEIGHBORHOOD;x++){
+            for(int y=-AVAILABLE_NEIGHBORHOOD;y<=AVAILABLE_NEIGHBORHOOD;y++){
+                availability[history_moves.x+x][history_moves.y+y] = 1;
+            }
+        }
+        */
     }
     num_of_empty_places = game.get_num_of_empty_places();
     game_depth = game.get_steps();
@@ -68,22 +77,38 @@ void GameAI::Update(GameModel &game){
     InitializeStateEstimation();
 }
 
-Coordinate GameAI::Decide(){
+Coordinate GameAI::quick_computer_move(){
+    queue<Coordinate> options;
+    RankOptions(options);
+    Coordinate move = options.front();
+    while(CheckRule(move)=="illegal"){
+        options.pop();
+        move = options.front();
+    }
+    return move;
+}
+
+Coordinate GameAI::computer_move(){
     //see if vct exists
-    bool canWin;
-    Coordinate VCT_move = CalculateVCT(canWin, true);
+    bool canWin = false;
+    Coordinate VCT_move = CalculateVCT(canWin, OUTTREE_VCT_DEPTH, true);
     if(canWin){
+        //for(int i=0;i<(int)main_variation.size();i++){
+        //    Stone cur = main_variation[i];
+        //    cout<<cur.x<<","<<cur.y<<cur.color<<endl;
+        //}
         return VCT_move;
     }
+    /*
     //do ab search, direct winning has been excluded.
-    stack<Coordinate> options;
+    queue<Coordinate> options;
     RankOptions(options);
     Coordinate move;//the move to try
     Coordinate opt_move;
     int alpha = -LARGEST_NUMBER-1;
     int beta = LARGEST_NUMBER + 1;
     while(!options.empty()){
-        move = options.top();
+        move = options.front();
         options.pop();
         string result = TryMove(move);
         if(result=="illegal"){
@@ -96,11 +121,20 @@ Coordinate GameAI::Decide(){
         }
         CancelTry();
     }
+    */
+    Coordinate opt_move = quick_computer_move();
+
     //see if opponent's vct exist
+    canWin = false;
     TryMove(opt_move);
-    VCT_move = CalculateVCT(canWin, true);
+    VCT_move = CalculateVCT(canWin, OUTTREE_VCT_DEPTH, true);
     CancelTry();
     if(canWin){
+        cout<<"dangerous!"<<endl;
+        //for(int i=0;i<(int)main_variation.size();i++){
+        //    Stone cur = main_variation[i];
+        //    cout<<cur.x<<","<<cur.y<<cur.color<<endl;
+        //}
         return VCT_move;
     }else{
         return opt_move;
@@ -110,28 +144,34 @@ Coordinate GameAI::Decide(){
 int GameAI::ABSearch(int alpha, int beta){
     global_step += 1;
     //cout<<get_relative_depth()<<endl;
-    if(global_step%19999==0){
+
+    if(global_step%9999==0){
         cout<<global_step<<endl;
         cout<<get_relative_depth()<<endl;
         cout<<alpha<<","<<beta<<endl;
         ShowBoard(current_board);
         //ShowBoard(black_active_twos,"number");
     }
+
+    /*
+    if(get_relative_depth()==5){
+        cout<<alpha<<","<<beta<<endl;
+    }
+    */
     if(get_relative_depth()<MAX_DEPTH){
     //in tree phase
-        stack<Coordinate> options;
+        queue<Coordinate> options;
         RankOptions(options);
         Coordinate opt_move;
         Coordinate move;
         while(!options.empty()){
-            move = options.top();
+            move = options.front();
             options.pop();
-            string result = TryMove(move);
-            if(result=="illegal"){
-                continue;
-            }
             if(isMaxNode()){
-                if(result=="terminated"){
+                string result = TryMove(move);
+                if(result=="illegal"){
+                    continue;
+                }else if(result=="terminated"){
                     CancelTry();
                     //ShowBoard();
                     return LARGEST_NUMBER;
@@ -144,13 +184,16 @@ int GameAI::ABSearch(int alpha, int beta){
                     }
                     //prunning
                     if(alpha >= beta){
-                        cout<<"prunning happens"<<endl;
+                        //cout<<"prunning happens"<<endl;
                         CancelTry();
                         return alpha;
                     }
                 }
             }else{
-                if(result=="terminated"){
+                string result = TryMove(move);
+                if(result=="illegal"){
+                    continue;
+                }else if(result=="terminated"){
                     CancelTry();
                     //ShowBoard();
                     return -LARGEST_NUMBER;
@@ -161,7 +204,7 @@ int GameAI::ABSearch(int alpha, int beta){
                         opt_move = move;
                     }
                     if(alpha>=beta){
-                        cout<<"prunning happens"<<endl;
+                        //cout<<"prunning happens"<<endl;
                         CancelTry();
                         return beta;
                     }
@@ -174,12 +217,26 @@ int GameAI::ABSearch(int alpha, int beta){
         }else{
             return beta;
         }
+    }else if(get_relative_depth()==MAX_DEPTH-1){
+        bool canWin=false;
+        CalculateVCT(canWin, INTREE_VCT_DEPTH);
+        if(canWin){
+            if(whose_turn==my_color){
+                return LARGEST_NUMBER;
+            }else{
+                return -LARGEST_NUMBER;
+            }
+        }
     }else{
     //at the leaf
         if(my_color=="black"){
-            return EstimateState();
+            int score = EstimateState();
+            //cout<<score<<endl;
+            return score;
         }else{
-            return -EstimateState();
+            int score = -EstimateState();
+            //cout<<score<<endl;
+            return score;
         }
     }
 }
@@ -192,12 +249,14 @@ string GameAI::TryMove(Coordinate move){
     }
 
     current_board2[move.x][move.y] = (whose_turn_repre>0)?4:5;
+    whose_turn_repre = REPRESENTATION.at(whose_turn);
+    opponent_repre = REPRESENTATION.at(ReverseColor(whose_turn));
 
-    FitTemplates(GetVector(move.y, "x"), 15, move.y, "x");
-    FitTemplates(GetVector(move.x, "y"), 15, move.x, "y");
-    FitTemplates(GetVector(move.x-move.y, "d"), 15-abs(move.x-move.y), move.x-move.y, "d");
-    FitTemplates(GetVector(14-(move.x+move.y), "a"), 15-abs(14-(move.x+move.y)), 14-(move.x+move.y), "a");
-
+    FitTemplates(GetVector(move.y, "x"), 15, move.y, "x", false, move.x, EMPTY_R);
+    FitTemplates(GetVector(move.x, "y"), 15, move.x, "y", false, move.y, EMPTY_R);
+    FitTemplates(GetVector(move.x-move.y, "d"), 15-abs(move.x-move.y), move.x-move.y, "d", false, min(move.x, move.y), EMPTY_R);
+    FitTemplates(GetVector(14-(move.x+move.y), "a"), 15-abs(14-(move.x+move.y)), 14-(move.x+move.y), "a", false, min(14-move.x, move.y), EMPTY_R);
+    //ShowBoard(current_board);
     UpdateHash(get_last_move());
     return result;
 }
@@ -210,11 +269,14 @@ void GameAI::CancelTry(){//doesn't capture the error of cancel in empty board, b
     current_board2[move.x][move.y] = 0;
 
     CancelLastMove();
+    whose_turn_repre = REPRESENTATION.at(whose_turn);
+    opponent_repre = REPRESENTATION.at(ReverseColor(whose_turn));
 
-    FitTemplates(GetVector(move.y, "x"), 15, move.y, "x");
-    FitTemplates(GetVector(move.x, "y"), 15, move.x, "y");
-    FitTemplates(GetVector(move.x-move.y, "d"), 15-abs(move.x-move.y), move.x-move.y, "d");
-    FitTemplates(GetVector(14-(move.x+move.y), "a"), 15-abs(14-(move.x+move.y)), 14-(move.x+move.y), "a");
+    FitTemplates(GetVector(move.y, "x"), 15, move.y, "x", false, move.x, whose_turn_repre);
+    FitTemplates(GetVector(move.x, "y"), 15, move.x, "y", false, move.y, whose_turn_repre);
+    FitTemplates(GetVector(move.x-move.y, "d"), 15-abs(move.x-move.y), move.x-move.y, "d", false, min(move.x, move.y), whose_turn_repre);
+    FitTemplates(GetVector(14-(move.x+move.y), "a"), 15-abs(14-(move.x+move.y)), 14-(move.x+move.y), "a", false, min(14-move.x, move.y), whose_turn_repre);
+    //ShowBoard(current_board);
 }
 
 bool GameAI::isMaxNode(){
@@ -232,13 +294,13 @@ void GameAI::InitHash(){
     srand((unsigned)time(0));
     for(string &color:colors){
         for(int i=0;i<BOARDSIZEX;i++){
-            for(int j=0;j<BOARDSIZEY;j++){
-                for(int k=0;k<HASH_SIZE;k++){
-                    bitstr[k] = rand();//15 bit
-                }
-                Stone temp_st(i,j,color);
-                hash_lookup[temp_st] = bitstr;
+        for(int j=0;j<BOARDSIZEY;j++){
+            for(int k=0;k<HASH_SIZE;k++){
+                bitstr[k] = rand();//15 bit
             }
+            Stone temp_st(i,j,color);
+            hash_lookup[temp_st] = bitstr;
+        }
         }
     }
     cur_hash.resize(HASH_SIZE);
@@ -265,21 +327,28 @@ void GameAI::RedoHash(){
     UpdateHash(last_move);
 }
 
-void GameAI::RankOptions(stack<Coordinate> &options){
+void GameAI::RankOptions(queue<Coordinate> &options){
     set_five_value();
     set_site_value();
     int len = BOARDSIZEX*BOARDSIZEY;
     vector<int> keys(len);
     vector<Coordinate> values(len);
     for(int i=0;i<BOARDSIZEX;i++){
-        for(int j=0;j<BOARDSIZEY;j++){
-            keys[i*BOARDSIZEX+j] = siteValue[i][j];
-            values[i*BOARDSIZEX+j] = Coordinate(i,j);
-        }
+    for(int j=0;j<BOARDSIZEY;j++){
+        keys[i*BOARDSIZEX+j] = siteValue[i][j];
+        values[i*BOARDSIZEX+j] = Coordinate(i,j);
+    }
     }
     sort(keys, values, 0, len);
-    for(int i=0;i<len;i++){
-        options.push(values[i]);
+    int n = 0;
+    for(int i=len;i>0;i--){
+        if(n>=10){
+            break;
+        }
+        if(CheckRule(values[i])!="illegal"){
+            options.push(values[i]);
+            n += 1;
+        }
     }
 }
 
@@ -317,12 +386,14 @@ int GameAI::EstimateState(){
                 state_values[cur_hash] = LARGEST_NUMBER;
                 return LARGEST_NUMBER;
             }else{
-                bool canWin = false;
-                CalculateVCT(canWin);
-                if(canWin){
-                    state_values[cur_hash] = LARGEST_NUMBER;
-                    return LARGEST_NUMBER;
-                }
+
+              bool canWin = false;
+              CalculateVCT(canWin, INTREE_VCT_DEPTH);
+              if(canWin){
+                  state_values[cur_hash] = LARGEST_NUMBER;
+                  return LARGEST_NUMBER;
+              }
+
                 /*
                 for(int i=0;i<15;i++){
                     for(int j=0;j<15;j++){
@@ -379,12 +450,14 @@ int GameAI::EstimateState(){
                 state_values[cur_hash] = -LARGEST_NUMBER;
                 return -LARGEST_NUMBER;
             }else{
+
                 bool canWin=false;
-                CalculateVCT(canWin);
+                CalculateVCT(canWin, INTREE_VCT_DEPTH);
                 if(canWin){
                     state_values[cur_hash] = -LARGEST_NUMBER;
                     return -LARGEST_NUMBER;
                 }
+
                 /*
                 for(int i=0;i<15;i++){
                     for(int j=0;j<15;j++){
@@ -448,18 +521,27 @@ void GameAI::FindActiveThreeMoves(stack<Coordinate> &active_three_moves, string 
     FindMoves(active_three_moves, color, &have_active_three_at);
 }
 
-Coordinate GameAI::CalculateVCT(bool &canWin, bool provide_move){
+Coordinate GameAI::CalculateVCT(bool &canWin, int max_depth, bool provide_move){
     /*
      * Implementation note:
-     * When the method is called, assume that opponent has not
-     * five or four. This is guarenteed by the implementation
-     * of EstimateState and this function.
+     * Assume that opponents have no five or four
+     * Assume that current player has no five as
+     * well.
+     * They are guarenteed by the implementation
+     * of EstimateState.
      *
-     * vic_move is only useful at first recurrence
      */
+     //cout<<"calculating vct..."<<endl;
+     //ShowBoard(current_board);
+     if(get_relative_depth()>max_depth){
+         ShowBoard(current_board);
+         canWin = false;
+         return Coordinate(-1,-1);
+     }
      if(whose_turn_repre==BLACK_R){
          if(num_of_black_wins>0){
              canWin = true;
+             VariationRecorder1();
              if(provide_move){
              //if there is request for moves
                  for(int i=0;i<BOARDSIZEX;i++){
@@ -472,21 +554,9 @@ Coordinate GameAI::CalculateVCT(bool &canWin, bool provide_move){
              }else{
                  return Coordinate(-1,-1);
              }
-         }else if(num_of_black_active_threes>0){
-             canWin = true;
-             if(provide_move){
-                 for(int i=0;i<BOARDSIZEX;i++){
-                 for(int j=0;j<BOARDSIZEY;j++){
-                     if(black_active_threes[i][j]>0){
-                         return Coordinate(i,j);
-                     }
-                 }
-                 }
-             }else{
-                 return Coordinate(-1,-1);
-             }
          }else if(num_of_black_half_fours>0){
              canWin = true;
+             VariationRecorder1();
              if(provide_move){
                  for(int i=0;i<BOARDSIZEX;i++){
                  for(int j=0;j<BOARDSIZEY;j++){
@@ -498,16 +568,65 @@ Coordinate GameAI::CalculateVCT(bool &canWin, bool provide_move){
              }else{
                  return Coordinate(-1,-1);
              }
+         }else if(num_of_white_wins){
+         //give up if opponent has four
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_black_active_threes*num_of_white_half_fours>0){
+             bool canDefend = true;
+             for(int i=0;i<BOARDSIZEX;i++){
+             for(int j=0;j<BOARDSIZEY;j++){
+                 if(white_half_fours[i][j]>0){
+                     TryMove(Coordinate(i,j));
+                     RespondVCT(canDefend, max_depth);
+                     if(!canDefend){
+                         VariationRecorder1();
+                     }else{
+                         VariationRecorder2();
+                     }
+                     CancelTry();
+                     if(!canDefend){
+                         canWin = true;
+                         return Coordinate(i,j);
+                     }
+                 }
+             }
+             }
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_black_active_threes-num_of_white_half_fours<0){
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_black_active_threes-num_of_white_half_fours>0){
+             canWin = true;
+             VariationRecorder1();
+             if(provide_move){
+                 for(int i=0;i<BOARDSIZEX;i++){
+                 for(int j=0;j<BOARDSIZEY;j++){
+                     if(black_active_threes[i][j]>0){
+                         return Coordinate(i,j);
+                     }
+                 }
+                 }
+             }else{
+                 return Coordinate(-1,-1);
+             }
          }
 
-
-         bool canDefend = true;
-         for(int i=0;i<15;i++){
+         //try to generate half four
+         if(num_of_black_half_threes>0){
+             bool canDefend = true;
+             for(int i=0;i<15;i++){
              for(int j=0;j<15;j++){
                  if(black_half_threes[i][j]>0){
                      Coordinate cur_move = Coordinate(i,j);
                      assert(TryMove(cur_move)=="continuing");
-                     RespondVCT(canDefend);
+                     RespondVCT(canDefend, max_depth);
+                     if(!canDefend){
+                         VariationRecorder1();
+                     }else{
+                         VariationRecorder2();
+                     }
                      CancelTry();
                      if(!canDefend){
                          canWin = true;
@@ -515,31 +634,45 @@ Coordinate GameAI::CalculateVCT(bool &canWin, bool provide_move){
                      }
                  }
              }
+             }
          }
-         if(num_of_white_half_threes>0){
-         //prunning when opponent has half four to generate
+         //try to generate active three
+         if(num_of_white_active_threes){
+         //prunning when opponent already has active three while you
+         //are just going to produce a three
          //when canWin==false, no need to assign vic_move
              canWin = false;
-         }else{
+             return Coordinate(-1,-1);
+         }else if(num_of_black_active_twos>0){
+             bool canDefend = true;
              for(int i=0;i<15;i++){
-                 for(int j=0;j<15;j++){
-                     if(black_active_twos[i][j]>0){
-                         Coordinate cur_move = Coordinate(i,j);
-                         assert(TryMove(cur_move)=="continuing");
-                         RespondVCT(canDefend);
-                         CancelTry();
-                         if(!canDefend){
-                             canWin = true;
-                             return cur_move;
-                         }
+             for(int j=0;j<15;j++){
+                 if(black_active_twos[i][j]>0){
+                     Coordinate cur_move = Coordinate(i,j);
+                     assert(TryMove(cur_move)=="continuing");
+                     RespondVCT(canDefend, max_depth);
+                     if(!canDefend){
+                         VariationRecorder1();
+                     }else{
+                         VariationRecorder2();
+                     }
+                     CancelTry();
+                     if(!canDefend){
+                         canWin = true;
+                         return cur_move;
                      }
                  }
              }
+             }
+         }else{
+             canWin = false;
+             return Coordinate(-1,-1);
          }
      }else{
      //this part is reverse of last part
          if(num_of_white_wins>0){
              canWin = true;
+             VariationRecorder1();
              if(provide_move){
              //if there is request for moves
                  for(int i=0;i<BOARDSIZEX;i++){
@@ -552,21 +685,9 @@ Coordinate GameAI::CalculateVCT(bool &canWin, bool provide_move){
              }else{
                  return Coordinate(-1,-1);
              }
-         }else if(num_of_white_active_threes>0){
-             canWin = true;
-             if(provide_move){
-                 for(int i=0;i<BOARDSIZEX;i++){
-                 for(int j=0;j<BOARDSIZEY;j++){
-                     if(white_active_threes[i][j]>0){
-                         return Coordinate(i,j);
-                     }
-                 }
-                 }
-             }else{
-                 return Coordinate(-1,-1);
-             }
          }else if(num_of_white_half_fours>0){
              canWin = true;
+             VariationRecorder1();
              if(provide_move){
                  for(int i=0;i<BOARDSIZEX;i++){
                  for(int j=0;j<BOARDSIZEY;j++){
@@ -578,16 +699,63 @@ Coordinate GameAI::CalculateVCT(bool &canWin, bool provide_move){
              }else{
                  return Coordinate(-1,-1);
              }
+         }else if(num_of_black_wins>0){
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_white_active_threes*num_of_black_half_fours>0){
+             bool canDefend = true;
+             for(int i=0;i<BOARDSIZEX;i++){
+             for(int j=0;j<BOARDSIZEY;j++){
+                 if(black_half_fours[i][j]>0){
+                     TryMove(Coordinate(i,j));
+                     RespondVCT(canDefend, max_depth);
+                     if(!canDefend){
+                         VariationRecorder1();
+                     }else{
+                         VariationRecorder2();
+                     }
+                     CancelTry();
+                     if(!canDefend){
+                         canWin = true;
+                         return Coordinate(i,j);
+                     }
+                 }
+             }
+             }
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_white_active_threes-num_of_black_half_fours<0){
+             canWin = false;
+             return Coordinate(-1,-1);
+         }else if(num_of_white_active_threes-num_of_black_half_fours>0){
+             canWin = true;
+             VariationRecorder1();
+             if(provide_move){
+                 for(int i=0;i<BOARDSIZEX;i++){
+                 for(int j=0;j<BOARDSIZEY;j++){
+                     if(white_active_threes[i][j]>0){
+                         return Coordinate(i,j);
+                     }
+                 }
+                 }
+             }else{
+                 return Coordinate(-1,-1);
+             }
          }
 
-
-         bool canDefend = true;
-         for(int i=0;i<15;i++){
+         if(num_of_white_half_threes>0){
+             bool canDefend = true;
+             for(int i=0;i<15;i++){
              for(int j=0;j<15;j++){
                  if(white_half_threes[i][j]>0){
                      Coordinate cur_move = Coordinate(i,j);
                      assert(TryMove(cur_move)=="continuing");
-                     RespondVCT(canDefend);
+                     RespondVCT(canDefend, max_depth);
+                     if(!canDefend){
+                         VariationRecorder1();
+                     }else{
+                         VariationRecorder2();
+                     }
                      CancelTry();
                      if(!canDefend){
                          canWin = true;
@@ -595,108 +763,140 @@ Coordinate GameAI::CalculateVCT(bool &canWin, bool provide_move){
                      }
                  }
              }
+             }
          }
-         if(num_of_black_half_threes>0){
+         if(num_of_black_active_threes){
              canWin = false;
-         }else{
+             return Coordinate(-1,-1);
+         }else if(num_of_white_active_twos>0){
+             bool canDefend = true;
              for(int i=0;i<15;i++){
-                 for(int j=0;j<15;j++){
-                     if(white_active_twos[i][j]>0){
-                         Coordinate cur_move = Coordinate(i,j);
-                         assert(TryMove(cur_move)=="continuing");
-                         RespondVCT(canDefend);
-                         CancelTry();
-                         if(!canDefend){
-                             canWin = true;
-                             return cur_move;
-                         }
+             for(int j=0;j<15;j++){
+                 if(white_active_twos[i][j]>0){
+                     Coordinate cur_move = Coordinate(i,j);
+                     assert(TryMove(cur_move)=="continuing");
+                     RespondVCT(canDefend, max_depth);
+                     if(!canDefend){
+                         VariationRecorder1();
+                     }else{
+                         VariationRecorder2();
+                     }
+                     CancelTry();
+                     if(!canDefend){
+                         canWin = true;
+                         return cur_move;
                      }
                  }
              }
+             }    
+         }else{
+             canWin = false;
+             return Coordinate(-1,-1);
          }
      }
 }
 
-void GameAI::RespondVCT(bool &canDefend){
+void GameAI::RespondVCT(bool &canDefend, int max_depth){
     /*
      * Implementation note:
-     * Assume it has no five, four, or half four. Only
-     * strategy for responding is to block
-     * Assume opponents has no five or four.
+     * Assume it has no five, four, or half four.
+     * The strategy for defending could be either
+     * to block or to produce half four (active three
+     * is a bit too slow)
      */
      if(whose_turn_repre==BLACK_R){
-         bool canWin = false;
-         if(num_of_white_half_fours>0){
+         canDefend = false;
+         bool canWin = true;
+         if(num_of_white_wins>0){
+             return;
+         }else if(num_of_white_half_fours>0){
+         //if opponent has half fours, then effective response must be to block it, if any
              for(int i=0;i<15;i++){
-                 for(int j=0;j<15;j++){
-                     if(white_half_fours[i][j]>0){
-                         TryMove(Coordinate(i,j));
-                         CalculateVCT(canWin);
-                         CancelTry();
-                         if(canWin){
-                             canDefend = false;
-                             return;
-                         }
+             for(int j=0;j<15;j++){
+                 if(white_half_fours[i][j]>0){
+                     VariationRecorder2();
+                     TryMove(Coordinate(i,j));
+                     CalculateVCT(canWin, max_depth);
+                     CancelTry();
+                     if(!canWin){
+                     //if there is a way when he cannot win, then you can defend successfully!
+                         canDefend = true;
+                         return;
                      }
                  }
              }
+             }
+             canDefend = false;
+             return;
          }else if(num_of_white_active_threes>0){
+         //if opponent has active threes, then effective response could
+         //be to block it or to produce half four
              for(int i=0;i<15;i++){
-                 for(int j=0;j<15;j++){
-                     if(white_active_threes[i][j]>0){
-                         TryMove(Coordinate(i,j));
-                         CalculateVCT(canWin);
-                         CancelTry();
-                         if(canWin){
-                             canDefend = false;
-                             return;
-                         }
+             for(int j=0;j<15;j++){
+                 if(black_active_threes[i][j]|black_half_threes[i][j]|white_active_threes[i][j]>0){
+                 //to retaliate or to block
+                     VariationRecorder2();
+                     TryMove(Coordinate(i,j));
+                     CalculateVCT(canWin, max_depth);
+                     CancelTry();
+                     if(!canWin){
+                         canDefend = true;
+                         return;
                      }
                  }
              }
+             }
+             canDefend = false;
+             return;
          }else{
+             //This case is due to the imcompleteness of the assessment of VCT
              canDefend = true;
              return;
          }
-         canDefend = true;
-         return;
      }
      if(whose_turn_repre==WHITE_R){
-         bool canWin = false;
-         if(num_of_black_half_fours>0){
+         canDefend = false;
+         bool canWin = true;
+         if(num_of_black_wins>0){
+             return;
+         }else if(num_of_black_half_fours>0){
              for(int i=0;i<15;i++){
-                 for(int j=0;j<15;j++){
-                     if(black_half_fours[i][j]>0){
-                         TryMove(Coordinate(i,j));
-                         CalculateVCT(canWin);
-                         CancelTry();
-                         if(canWin){
-                             canDefend = false;
-                             return;
-                         }
+             for(int j=0;j<15;j++){
+                 if(black_half_fours[i][j]>0){
+                     VariationRecorder2();
+                     TryMove(Coordinate(i,j));
+                     CalculateVCT(canWin, max_depth);
+                     CancelTry();
+                     if(!canWin){
+                         canDefend = true;
+                         return;
                      }
                  }
              }
+             }
+             canDefend = false;
+             return;
          }else if(num_of_black_active_threes>0){
              for(int i=0;i<15;i++){
-                 for(int j=0;j<15;j++){
-                     if(black_active_threes[i][j]>0){
-                         TryMove(Coordinate(i,j));
-                         CalculateVCT(canWin);
-                         CancelTry();
-                         if(canWin){
-                             canDefend = false;
-                             return;
-                         }
+             for(int j=0;j<15;j++){
+                 if(white_active_threes[i][j]|white_half_threes[i][j]|black_active_threes[i][j]>0){
+                     VariationRecorder2();
+                     TryMove(Coordinate(i,j));
+                     CalculateVCT(canWin, max_depth);
+                     CancelTry();
+                     if(!canWin){
+                         canDefend = true;
+                         return;
                      }
                  }
              }
+             }
+             canDefend = false;
+             return;
          }else{
              canDefend = true;
              return;
          }
-         canDefend = true;
-         return;
      }
 }
 
@@ -803,6 +1003,7 @@ void GameAI::sort(vector<int> &keys, vector<Coordinate> &values, int h, int t){
             Coordinate temp2 = values[h];
             values[h] = values[h+1];
             values[h+1] = temp2;
+            return;
         }
     }else{
         sort(keys, values, h, h+n/2);
@@ -822,7 +1023,7 @@ void GameAI::sort(vector<int> &keys, vector<Coordinate> &values, int h, int t){
                     temp2[i] = values[r_ind];
                     r_ind++;
                 }
-            }else if(r_ind==n){
+            }else if(r_ind==t){
                 temp1[i] = keys[l_ind];
                 temp2[i] = values[l_ind];
                 l_ind++;
@@ -845,6 +1046,25 @@ void GameAI::apply_xor(vector<int> &result, const vector<int> &bitstr1, const ve
     }
 }
 
+void GameAI::PrintVariation(){
+    int cur_steps = get_steps();
+    for(int n=cur_steps;n>game_depth;n--){
+        Stone move = history_moves[n];
+        cout<<move.x<<","<<move.y<<" "<<move.color<<endl;
+    }
+}
+
+void GameAI::VariationRecorder1(){
+
+    for(int k=game_depth;k<get_steps();k++){
+        main_variation.push_back(history_moves[k]);
+    }
+}
+
+void GameAI::VariationRecorder2(){
+    main_variation.clear();
+}
+
 /*
 void GameAI::ReverseBoard(){
     for(int i=0;i<BOARDSIZEX;i++){
@@ -862,16 +1082,17 @@ string GameAI::toString(){
     str += string("FIRST_PLAYER ") + ((FIRST_PLAYER==HUMAN)?"HUMAN":"COMPUTER") + "\n";
     str += string("SECOND_PLAYER ") + ((SECOND_PLAYER==HUMAN)?"HUMAN":"COMPUTER") + "\n";
     str += string("whose_turn ") + whose_turn + "\n";
+    str += "whose_turn_repre: " + to_string(whose_turn_repre) + "\n";
+    str += "opponent_repre: " + to_string(opponent_repre) + "\n";
     str += string("current player type ") + ((get_cur_player()==HUMAN)?"HUMAN":"COMPUTER") + "\n";
     str += string("terminated ") + (isTerminated()?"true":"false") + "\n";
     str += string("winner ") + winner + "\n";
     str += string("num_of_empty_places ") + to_string(get_num_of_empty_places()) + "\n";
+    str += "current steps: " + to_string(get_steps()) + "\n";
     str += "-------------ai info------------------\n";
     str += string("MAX_DEPTH ") + to_string(MAX_DEPTH) + "\n";
     str += string("my_color ") + my_color + "\n";
     str += string("game_depth ") + to_string(game_depth) + "\n";
-    str += string("hash_lookup size ") + to_string(hash_lookup.size()) + "\n";
-    str += string("state_values size ") + to_string(state_values.size()) + "\n";
     str += "cur_hash ";
     for(int i=0;i<HASH_SIZE;i++){
         str += to_string(cur_hash[i]);
@@ -964,12 +1185,10 @@ struct GameAI::TwoBitStrings GameAI::GetVector(int index, string direc){
     return black_and_white_vecs;
 }
 
-void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int len, int index, string direc){
+void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int len, int index, string direc, bool recalculate, int changed_point, int old_value){
       if(len<5){
           return;
-      }
-      int black_vec = black_and_white_vecs.black_vec;
-      int white_vec = black_and_white_vecs.white_vec;
+      }      
       int init_x;
       int init_y;
       int dx;
@@ -1008,8 +1227,24 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
           throw "typo";
       }
 
-      int centers[10];
-      int num_of_centers = 0;
+      int black_vec = black_and_white_vecs.black_vec;
+      int white_vec = black_and_white_vecs.white_vec;
+      int old_black_vec = black_vec;
+      int old_white_vec = white_vec;
+      if(!recalculate){
+          if(old_value==BLACK_R){
+              old_black_vec = black_vec|(1<<changed_point);
+          }else if(old_value==WHITE_R){
+              old_white_vec = white_vec|(1<<changed_point);
+          }else{//old_value==EMPTY_R
+              old_black_vec = black_vec&(~(1<<changed_point));
+              old_white_vec = white_vec&(~(1<<changed_point));
+          }
+      }else{
+          //suppose all the state estimations are already reset
+          old_black_vec = 0;//let them not fitting any template
+          old_white_vec = 0;
+      }
 
       /*
        * Type: black five
@@ -1017,11 +1252,10 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
        * Length: 5
        * Representation: 31, 0
        */
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 5, 31, 0,
+      int centers[10];
+      int num_of_centers = 0;
+      FitTheTemplate(black_vec, white_vec, old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 5, 31, 0,
                  centers, num_of_centers, num_of_black_wins, num_of_white_wins, NULL, NULL);
-      if(num_of_black_wins||num_of_white_wins){
-          return;
-      }
 
       /*
        * Type: black four
@@ -1032,11 +1266,8 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
       centers[0] = 0;
       centers[1] = 5;
       num_of_centers = 2;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 6, 30, 0,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 6, 30, 0,
                     centers, num_of_centers, num_of_black_wins, num_of_white_wins, black_fours, white_fours);
-      if(num_of_black_wins||num_of_white_wins){
-          return;
-      }
 
       /*
        * Type: black half four type 1
@@ -1047,7 +1278,7 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
        */
       centers[0] = 0;
       num_of_centers = 1;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 6, 30, 32,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 6, 30, 32,
                      centers, num_of_centers, num_of_black_half_fours, num_of_white_half_fours, black_half_fours, white_half_fours);
 
       /*
@@ -1059,7 +1290,7 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
        */
       centers[0] = 5;
       num_of_centers = 1;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 6, 30, 1,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 6, 30, 1,
                centers, num_of_centers, num_of_black_half_fours, num_of_white_half_fours, black_half_fours, white_half_fours);
 
       /*
@@ -1071,7 +1302,7 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
        */
       centers[0] = 1;
       num_of_centers = 1;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 5, 29, 0,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 5, 29, 0,
                centers, num_of_centers, num_of_black_half_fours, num_of_white_half_fours, black_half_fours, white_half_fours);
 
       /*
@@ -1083,7 +1314,7 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
        */
       centers[0] = 3;
       num_of_centers = 1;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 5, 23, 0,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 5, 23, 0,
               centers, num_of_centers, num_of_black_half_fours, num_of_white_half_fours, black_half_fours, white_half_fours);
 
       /*
@@ -1095,22 +1326,31 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
        */
       centers[0] = 2;
       num_of_centers = 1;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 5, 27, 0,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 5, 27, 0,
            centers, num_of_centers, num_of_black_half_fours, num_of_white_half_fours, black_half_fours, white_half_fours);
 
       /*
        * Type: black active three type 1
-       * Shape: _XXX_
-       * Length: 5
-       * Center: 0 and 4
+       * Shape: _XXX__
+       * Length: 6
+       * Center: 4
        * Representation: 14, 0
        */
-      centers[0] = 0;
-      centers[1] = 4;
-      num_of_centers = 2;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 5, 14, 0,
+      centers[0] = 4;
+      num_of_centers = 1;
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 6, 14, 0,
               centers, num_of_centers, num_of_black_active_threes, num_of_white_active_threes, black_active_threes, white_active_threes);
-
+      /*
+       * Type: black active three type 1'
+       * Shape: __XXX_
+       * Length: 6
+       * Center: 1
+       * Representation: 28, 0
+       */
+      centers[0] = 1;
+      num_of_centers = 1;
+      FitTheTemplate(black_vec, white_vec, old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 6, 28, 0,
+              centers, num_of_centers, num_of_black_active_threes, num_of_white_active_threes, black_active_threes, white_active_threes);
       /*
        * Type: black active three type 2
        * Shape: _X_XX_
@@ -1120,7 +1360,7 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
        */
       centers[0] = 2;
       num_of_centers = 1;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 6, 26, 0,
+      FitTheTemplate(black_vec, white_vec, old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 6, 26, 0,
           centers, num_of_centers, num_of_black_active_threes, num_of_white_active_threes, black_active_threes, white_active_threes);
 
       /*
@@ -1131,7 +1371,8 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
        * Representation: 22, 0
        */
       centers[0] = 3;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 6, 22, 0,
+      num_of_centers = 1;
+      FitTheTemplate(black_vec, white_vec, old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 6, 22, 0,
                centers, num_of_centers, num_of_black_active_threes, num_of_white_active_threes, black_active_threes, white_active_threes);
 
       /*
@@ -1144,7 +1385,7 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
       centers[0] = 0;
       centers[1] = 1;
       num_of_centers = 2;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 6, 28, 32,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 6, 28, 32,
           centers, num_of_centers, num_of_black_half_threes, num_of_white_half_threes, black_half_threes, white_half_threes);
 
       /*
@@ -1157,7 +1398,7 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
       centers[0] = 4;
       centers[1] = 5;
       num_of_centers = 2;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 6, 14, 1,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 6, 14, 1,
           centers, num_of_centers, num_of_black_half_threes, num_of_white_half_threes, black_half_threes, white_half_threes);
 
      /*
@@ -1170,7 +1411,7 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
       centers[0] = 0;
       centers[1] = 2;
       num_of_centers = 2;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 6, 26, 32,
+      FitTheTemplate(black_vec, white_vec, old_black_vec, old_white_vec,  len, init_x, init_y, dx, dy, 6, 26, 32,
               centers, num_of_centers, num_of_black_half_threes, num_of_white_half_threes, black_half_threes, white_half_threes);
 
      /*
@@ -1183,7 +1424,7 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
       centers[0] = 3;
       centers[1] = 5;
       num_of_centers = 2;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 6, 22, 1,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 6, 22, 1,
             centers, num_of_centers, num_of_black_half_threes, num_of_white_half_threes, black_half_threes, white_half_threes);
 
      /*
@@ -1196,7 +1437,7 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
       centers[0] = 2;
       centers[1] = 5;
       num_of_centers = 2;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 6, 26, 1,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 6, 26, 1,
              centers, num_of_centers, num_of_black_half_threes, num_of_white_half_threes, black_half_threes, white_half_threes);
 
      /*
@@ -1209,7 +1450,7 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
       centers[0] = 0;
       centers[1] = 3;
       num_of_centers = 2;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 6, 22, 32,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 6, 22, 32,
              centers, num_of_centers, num_of_black_half_threes, num_of_white_half_threes, black_half_threes, white_half_threes);
 
      /*
@@ -1222,7 +1463,7 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
       centers[0] = 1;
       centers[1] = 2;
       num_of_centers = 2;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 5, 25, 0,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 5, 25, 0,
             centers, num_of_centers, num_of_black_half_threes, num_of_white_half_threes, black_half_threes, white_half_threes);
      /*
       * Type: black half three type 4'
@@ -1234,7 +1475,7 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
       centers[0] = 2;
       centers[1] = 3;
       num_of_centers = 2;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 5, 19, 0,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 5, 19, 0,
            centers, num_of_centers, num_of_black_half_threes, num_of_white_half_threes, black_half_threes, white_half_threes);
 
      /*
@@ -1247,91 +1488,94 @@ void GameAI::FitTemplates(struct GameAI::TwoBitStrings black_and_white_vecs, int
       centers[0] = 1;
       centers[1] = 3;
       num_of_centers = 2;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 5, 21, 0,
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 5, 21, 0,
           centers, num_of_centers, num_of_black_half_threes, num_of_white_half_threes, black_half_threes, white_half_threes);
 
      /*
       * Type: black active two type 1
       * Shape: _XX__
       * Length: 5
-      * Center: 0, 3 and 4
+      * Center: 3
       * Representation: 6, 0
       */
-      centers[0] = 0;
-      centers[1] = 3;
-      centers[2] = 4;
-      num_of_centers = 3;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 5, 6, 0,
+      centers[0] = 3;
+      num_of_centers = 1;
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 5, 6, 0,
            centers, num_of_centers, num_of_black_active_twos, num_of_white_active_twos, black_active_twos, white_active_twos);
 
      /*
       * Type: black active two type 1'
       * Shape: __XX_
       * Length: 5
-      * Center: 0,1 and 4
+      * Center: 1
       * Representation: 12, 0
       */
-      centers[0] = 0;
-      centers[1] = 1;
-      centers[2] = 4;
-      num_of_centers = 3;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 5, 12, 0,
+      centers[0] = 1;
+      num_of_centers = 1;
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 5, 12, 0,
            centers, num_of_centers, num_of_black_active_twos, num_of_white_active_twos, black_active_twos, white_active_twos);
 
      /*
       * Type: black active two type 2
       * Shape: _X_X_
       * Length: 5
-      * Center: 0 2 and 4
+      * Center: 2
       * Representation: 10, 0
       */
-      centers[0] = 0;
-      centers[1] = 2;
-      centers[2] = 4;
-      num_of_centers = 3;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 5, 10, 0,
+      centers[0] = 2;
+      num_of_centers = 1;
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 5, 10, 0,
           centers, num_of_centers, num_of_black_active_twos, num_of_white_active_twos, black_active_twos, white_active_twos);
 
      /*
       * Type: black active two type 3
       * Shape: _X__X_
       * Length: 6
-      * Center: 0, 2, 3 and 5
+      * Center: 2, 3
       * Representation: 18, 0
       */
-      centers[0] = 0;
-      centers[1] = 2;
-      centers[2] = 3;
-      centers[3] = 5;
-      num_of_centers = 4;
-      FitTheTemplate(black_vec, white_vec, len, init_x, init_y, dx, dy, 6, 18, 0,
+      centers[0] = 2;
+      centers[1] = 3;
+      num_of_centers = 2;
+      FitTheTemplate(black_vec, white_vec,  old_black_vec, old_white_vec, len, init_x, init_y, dx, dy, 6, 18, 0,
            centers, num_of_centers, num_of_black_active_twos, num_of_white_active_twos, black_active_twos, white_active_twos);
 }
 
-void GameAI::FitTheTemplate(int black_vec, int white_vec, int len, int init_x, int init_y, int dx, int dy,
+void GameAI::FitTheTemplate(int black_vec, int white_vec, int old_black_vec, int old_white_vec, int len, int init_x, int init_y, int dx, int dy,
                            int temp_size, int temp1, int temp2, int *centers, int num_of_centers,
                            int &black_count, int &white_count, int black_locations[15][15], int white_locations[15][15]){
-    int cur_black_vec, cur_white_vec;
+    bool fitsNew, fitsOld;
     int center_x, center_y;
     int iters = len-temp_size+1;
     int x = init_x;
     int y = init_y;
     for(int n=0; n<iters; n++){
-        cur_black_vec = (black_vec>>n)&((1<<temp_size)-1);
-        cur_white_vec = (white_vec>>n)&((1<<temp_size)-1);
-        //if(cur_black_vec!=0){
-        //    cout<<"checking for black shape..."<<endl;
-        //    cout<<"temp1 "<<temp1<<" temp2 "<<temp2<<endl;
-        //    cout<<"cur_black_vec "<<cur_black_vec<<" cur_white_vec "<<cur_white_vec<<endl;
-        //    cout<<endl;
-        //}
-        if((cur_black_vec==temp1)&&(cur_white_vec==temp2)){
+        fitsNew = (((black_vec>>n)&((1<<temp_size)-1))==temp1)&&
+                  (((white_vec>>n)&((1<<temp_size)-1))==temp2);
+        fitsOld = (((old_black_vec>>n)&((1<<temp_size)-1))==temp1)&&
+                  (((old_white_vec>>n)&((1<<temp_size)-1))==temp2);
+        if(fitsNew&&!fitsOld){
+            //cout<<"adding black"<<endl;
+            /*
+            cout<<"checking for black shape..."<<endl;
+            cout<<"temp1 "<<temp1<<" temp2 "<<temp2<<endl;
+            cout<<"cur_black_vec "<<cur_black_vec<<" cur_white_vec "<<cur_white_vec<<endl;
+            cout<<endl;
+            */
             for(int i=0; i<num_of_centers; i++){
                 center_x = x + centers[i]*dx;
                 center_y = y + centers[i]*dy;
-                black_locations[center_x][center_y] = 1;
+                black_locations[center_x][center_y] += 1;
             }
             black_count += 1;
+        }else if(!fitsNew&&fitsOld){
+            //cout<<"deleting black"<<endl;
+            for(int i=0;i<num_of_centers;i++){
+                center_x = x + centers[i]*dx;
+                center_y = y + centers[i]*dy;
+                black_locations[center_x][center_y] -= 1;
+            }
+            black_count -= 1;
         }
         x += dx;
         y += dy;
@@ -1339,21 +1583,33 @@ void GameAI::FitTheTemplate(int black_vec, int white_vec, int len, int init_x, i
     x = init_x;
     y = init_y;
     for(int n=0; n<iters; n++){
-        cur_black_vec = (black_vec>>n)&((1<<temp_size)-1);
-        cur_white_vec = (white_vec>>n)&((1<<temp_size)-1);
-        //if(cur_white_vec!=0){
-        //     cout<<"checking for white shape..."<<endl;
-        //     cout<<"temp1 "<<temp1<<" temp2 "<<temp2<<endl;
-        //     cout<<"cur_black_vec "<<cur_black_vec<<" cur_white_vec "<<cur_white_vec<<endl;
-        //     cout<<endl;
-        //}
-        if((cur_white_vec==temp1)&&(cur_black_vec==temp2)){
+        //reverse of previous section
+        fitsNew = (((white_vec>>n)&((1<<temp_size)-1))==temp1)&&
+                  (((black_vec>>n)&((1<<temp_size)-1))==temp2);
+        fitsOld = (((old_white_vec>>n)&((1<<temp_size)-1))==temp1)&&
+                  (((old_black_vec>>n)&((1<<temp_size)-1))==temp2);
+        if(fitsNew&&(!fitsOld)){
+            /*
+            cout<<"checking for black shape..."<<endl;
+            cout<<"temp1 "<<temp1<<" temp2 "<<temp2<<endl;
+            cout<<"cur_black_vec "<<cur_black_vec<<" cur_white_vec "<<cur_white_vec<<endl;
+            cout<<endl;
+            */
+            //cout<<"adding white"<<endl;
             for(int i=0; i<num_of_centers; i++){
                 center_x = x + centers[i]*dx;
                 center_y = y + centers[i]*dy;
-                white_locations[center_x][center_y] = 1;
+                white_locations[center_x][center_y] += 1;
             }
             white_count += 1;
+        }else if((!fitsNew)&&fitsOld){
+            //cout<<"deleting white"<<endl;
+            for(int i=0;i<num_of_centers;i++){
+                center_x = x + centers[i]*dx;
+                center_y = y + centers[i]*dy;
+                white_locations[center_x][center_y] -= 1;
+            }
+            white_count -= 1;
         }
         x += dx;
         y += dy;
@@ -1373,6 +1629,16 @@ void GameAI::InitializeStateEstimation(){
             white_active_twos[i][j] = 0;
         }
     }
+    num_of_black_wins = 0;
+    num_of_white_wins = 0;
+    num_of_black_half_fours = 0;
+    num_of_black_active_threes = 0;
+    num_of_black_half_threes = 0;
+    num_of_black_active_twos = 0;
+    num_of_white_half_fours = 0;
+    num_of_white_active_threes = 0;
+    num_of_white_half_threes = 0;
+    num_of_white_active_twos = 0;
     string direcs[4] = {"x","y","d","a"};
     for(int k = 0; k<2; k++){
         for(int index=0; index<15; index++){

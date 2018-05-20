@@ -6,22 +6,28 @@
 #include "coordinate.h"
 #include <map>
 #include <stack>
+#include <queue>
 #include <string>
 using namespace std;
+
+const int WHITE_R = -1;
+const int BLACK_R = 1;
+const int EMPTY_R = 0;
+const int BOARDSIZEX = 15;
+const int BOARDSIZEY = 15;
 
 typedef struct
 {
     int x,y,l,r;
 }value;
 
-
-class GameAI: private GameModel
+class GameAI: public GameModel
 {
 public:
     GameAI(GameModel &game, string color, int max_depth=6);//copy all the attributes
     void Update(GameModel &game);//compare the history and do updates
-
-    Coordinate Decide();//main searching algorithm
+    Coordinate quick_computer_move();
+    Coordinate computer_move();//main searching algorithm
     int ABSearch(int alpha, int beta);//recurrent steps
 
     string TryMove(Coordinate move);//TakeMove and update hash. Return terminated/continuing/illegal. Illegal result will have hash updated.
@@ -35,7 +41,7 @@ public:
     void RedoHash();//one step redo
 
     //part of the policy
-    void RankOptions(stack<Coordinate> & options);
+    void RankOptions(queue<Coordinate> & options);
 
     int EstimateState();//in whose_turn's perspective
 
@@ -47,24 +53,29 @@ public:
 
     //output whether can suceed, and a victory move. Your killing moves are also taken into account.
     //But opponents' four, five are not taken into account.
-    Coordinate CalculateVCT(bool & canWin, bool provide_move=false);
-    void RespondVCT(bool & canDefend);//type = "four" or "three"
+    Coordinate CalculateVCT(bool & canWin, int max_depth, bool provide_move=false);
+    void RespondVCT(bool & canDefend, int max_depth);//type = "four" or "three"
     string toString();
 
 private:
-    static const int LARGEST_NUMBER = 1000000;
-    static const int SCORE_FOR_MY_HALF_THREE = 50;
-    static const int SCORE_FOR_MY_ACTIVE_TWO = 60;
-    static const int SCORE_FOR_YOUR_HALF_FOUR = -90;
-    static const int SCORE_FOR_YOUR_ACTIVE_THREE = -100;
-    static const int SCORE_FOR_YOUR_HALF_THREE = -20;
-    static const int SCORE_FOR_YOUR_ACTIVE_TWO = -30;
+    static const int LARGEST_NUMBER = 9000;
+    static const int SCORE_FOR_MY_HALF_THREE = 39;
+    static const int SCORE_FOR_MY_ACTIVE_TWO = 30;
+    static const int SCORE_FOR_YOUR_HALF_FOUR = -62;
+    static const int SCORE_FOR_YOUR_ACTIVE_THREE = -59;
+    static const int SCORE_FOR_YOUR_HALF_THREE = -10;
+    static const int SCORE_FOR_YOUR_ACTIVE_TWO = -8;
     static const int HASH_SIZE = 4;
+    static const int INTREE_VCT_DEPTH = 5;
+    static const int OUTTREE_VCT_DEPTH = 15;
+    //static const int AVAILABLE_NEIGHBORHOOD = 3;
     int global_step=0;
     const int MAX_DEPTH;
     string my_color;
     int game_depth;//the number of steps that has been played
-
+    //those representation of current player. used to enhance speed a little bit
+    int whose_turn_repre;
+    int opponent_repre;
     struct cmp_bitstr{
         bool operator()(const vector<int> &a, const vector<int> & b) const{
             int i=0;
@@ -83,10 +94,14 @@ private:
     vector<int> cur_hash;
 
     int current_board2[BOARDSIZEX][BOARDSIZEY];
+    //int availability[BOARDSIZEX][BOARDSIZEY];
 
     //They are part of policy
     value fiveValue[BOARDSIZEX][BOARDSIZEY];
     int siteValue[BOARDSIZEX][BOARDSIZEY];
+
+    //vct debugger
+    vector<Stone> main_variation;
 
 
     struct TwoBitStrings{
@@ -94,9 +109,13 @@ private:
         int white_vec = 0;
     };
     //related to state estimation
+
     //They will be used during state estimation or VCT
-    //When entering state estimation, they will be initialized
-    //partially updated in VCT
+    /*
+     * Restore the vectors of last time.
+     * When fitting template, they will be used to figure out
+     * change in number and centers. Then they will be updated
+     */
     /*
     map<string, vector<int>> black_vecs = {{"x", vector<int>(15)},
                                            {"y", vector<int>(15)},
@@ -150,11 +169,11 @@ private:
      * index, direc represent the position of the vector
      * shape templates are hard-coded in the function.
      */
-    void FitTemplates(struct GameAI::TwoBitStrings vecs, int len, int index, string direc);
+    void FitTemplates(struct GameAI::TwoBitStrings vecs, int len, int index, string direc, bool recalculate = true, int changed_point=-1, int old_value=-2);
     /*
      * Fit two template1 and template2 to black vectors
      */
-    void FitTheTemplate(int black_vec, int white_vec, int len, int init_x, int init_y, int dx, int dy,
+    void FitTheTemplate(int black_vec, int white_vec, int old_black_vec, int old_white_vec, int len, int init_x, int init_y, int dx, int dy,
                        int temp_size, int temp1, int temp2, int* centers, int num_of_centers,
                        int &black_count, int &white_count, int black_locations[15][15], int white_locations[15][15]);
     /*
@@ -166,6 +185,9 @@ private:
     /*helper methods*/
     void sort(vector<int> &keys, vector<Coordinate> &values, int h, int t);//sort in increasing order
     void apply_xor(vector<int> &result, const vector<int> &bitstr1, const vector<int> &bitstr2);
+    void PrintVariation();
+    void VariationRecorder1();
+    void VariationRecorder2();
     //void ReverseBoard();
 
     //The following two hard-coded methods only work under default representations.

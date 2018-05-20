@@ -10,6 +10,7 @@
 #include "gamemodel.h"
 #include "stone.h"
 #include "gameai.h"
+#include <time.h>
 using namespace std;
 
 
@@ -59,17 +60,39 @@ void test_game_model(){
     showBoard(myModel);
 }
 
+void test_ai_properties(){
+    GameModel game = GameModel(HUMAN,COMPUTER);
+    GameAI myAI = GameAI(game, "white");
+    game.TakeMove(0,0);
+    game.TakeMove(1,0);
+    game.TakeMove(0,1);
+    myAI.Update(game);
+    cout<<myAI<<endl;
+    cout<<myAI.TryMove(Coordinate(1,1))<<endl;
+    cout<<myAI<<endl;
+    cout<<myAI.TryMove(Coordinate(0,2))<<endl;
+    cout<<myAI<<endl;
+    cout<<myAI.TryMove(Coordinate(1,2))<<endl;
+    cout<<myAI<<endl;
+    cout<<myAI.TryMove(Coordinate(0,3))<<endl;
+    cout<<myAI<<endl;
+    cout<<myAI.TryMove(Coordinate(1,3))<<endl;
+    cout<<myAI<<endl;
+    cout<<myAI.TryMove(Coordinate(0,4))<<endl;
+    cout<<myAI<<endl;
+    cout<<myAI.TryMove(Coordinate(1,4))<<endl;
+    cout<<myAI<<endl;
+    myAI.CancelTry();
+    cout<<myAI<<endl;
+    myAI.CancelTry();
+    cout<<myAI<<endl;
+    showBoard(myAI);
+}
 
-/*
- * Function: main
- * usage: implicitly used
- * -----------------------------
- *
- */
-int main()
-{
+void test_ai(){
     GameModel game(HUMAN,COMPUTER);
-    //game.TakeMove(1,1);
+    game.TakeMove(7,7);
+    /*
     game.TakeMove(6,6);
     game.TakeMove(2,2);
     game.TakeMove(10,10);
@@ -85,8 +108,45 @@ int main()
     showBoard(game);
     //game.TakeMove(7,7);
     //game.TakeMove(7,6);
+    */
     GameAI ai(game,"white");
-    Coordinate new_move = ai.Decide();
+    cout<<"starts"<<endl;
+    Coordinate new_move = ai.quick_computer_move();
     cout<<new_move.x<<","<<new_move.y<<endl;
+}
+
+void interactive_test(){
+    GameModel game(HUMAN,COMPUTER);
+    GameAI ai(game, "white");
+    while(true){
+        string input;
+        getline(cin,input);
+        int comma = input.find(",");
+        int x = atoi(input.substr(0,comma).c_str());
+        int y = atoi(input.substr(comma+1).c_str());
+        if(game.TakeMove(x,y)=="illegal"){
+            cout<<"illegal"<<endl;
+            continue;
+        }else{
+            showBoard(game);
+            ai.Update(game);
+            clock_t start = clock();
+            game.TakeMove(ai.computer_move());
+            clock_t end = clock();
+            cout<<"time for the decision: "<<(double)(end-start)/CLOCKS_PER_SEC<<endl;
+            showBoard(game);
+        }
+    }
+}
+
+/*
+ * Function: main
+ * usage: implicitly used
+ * -----------------------------
+ *
+ */
+int main()
+{
+    interactive_test();
     return 0;
 }
